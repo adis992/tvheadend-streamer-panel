@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TVHeadend Streamer - GPU Transcoder</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .container-fluid {
+            padding: 20px;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            color: white;
+            text-align: center;
+        }
+        
+        .gpu-status {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 15px;
+        }
+        
+        .gpu-badge {
+            padding: 8px 15px;
+            border-radius: 25px;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.8em;
+        }
+        
+        .gpu-available { background: #28a745; color: white; }
+        .gpu-unavailable { background: #dc3545; color: white; }
+        
+        .controls-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .channels-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .channel-card {
+            border: none;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        
+        .channel-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .channel-active {
+            border-left: 5px solid #28a745;
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        }
+        
+        .channel-transcoding {
+            border-left: 5px solid #ffc107;
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        }
+        
+        .channel-logo {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-right: 15px;
+        }
+        
+        .channel-info {
+            flex-grow: 1;
+        }
+        
+        .channel-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .channel-group {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+        
+        .channel-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .status-active { background: #28a745; color: white; }
+        .status-inactive { background: #6c757d; color: white; }
+        .status-transcoding { background: #ffc107; color: #333; }
+        
+        .btn-sm {
+            padding: 5px 12px;
+            font-size: 0.85em;
+        }
+        
+        .progress-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 300px;
+            z-index: 1000;
+        }
+        
+        .progress-item {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .stats-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+            text-align: center;
+        }
+        
+        .stat-item {
+            margin: 10px 0;
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            display: block;
+        }
+        
+        .channel-url {
+            font-family: monospace;
+            font-size: 0.8em;
+            color: #666;
+            word-break: break-all;
+            margin-top: 5px;
+        }
+        
+        .bandwidth-info {
+            font-size: 0.8em;
+            color: #28a745;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        
+        .bandwidth-info i {
+            margin-right: 5px;
+        }
+        
+        .vlc-button {
+            background: linear-gradient(135deg, #ff8c00 0%, #ff6347 100%);
+            border: none;
+            color: white;
+        }
+        
+        .vlc-button:hover {
+            background: linear-gradient(135deg, #ff6347 0%, #ff4500 100%);
+            color: white;
+        }
+        
+        .vlc-not-installed {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        @media (max-width: 768px) {
+            .channel-controls {
+                width: 100%;
+                margin-top: 10px;
+            }
+            
+            .gpu-status {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-broadcast-tower"></i> TVHeadend Streamer</h1>
+            <p class="mb-0">GPU Accelerated Transcoding Platform</p>
+            <div class="gpu-status">
+                <div id="nvidia-status" class="gpu-badge gpu-unavailable">
+                    <i class="fas fa-microchip"></i> NVIDIA: Checking...
+                </div>
+                <div id="amd-status" class="gpu-badge gpu-unavailable">
+                    <i class="fas fa-microchip"></i> AMD: Checking...
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <!-- Controls Panel -->
+            <div class="col-lg-4">
+                <div class="controls-panel">
+                    <h4><i class="fas fa-cog"></i> Kontrole</h4>
+                    
+                    <div class="mb-3">
+                        <button id="refresh-btn" class="btn btn-primary w-100">
+                            <i class="fas fa-sync-alt"></i> Osvježi Playlistu
+                        </button>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Kvalitet Transkodovanja:</label>
+                        <select id="quality-select" class="form-select">
+                            <option value="low">Niska (640x480, 500kbps)</option>
+                            <option value="medium" selected>Srednja (1280x720, 1.5Mbps)</option>
+                            <option value="high">Visoka (1920x1080, 3Mbps)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">GPU Preference:</label>
+                        <select id="gpu-select" class="form-select">
+                            <option value="auto">Automatski</option>
+                            <option value="nvidia">NVIDIA</option>
+                            <option value="amd">AMD</option>
+                            <option value="cpu">CPU (Backup)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="stats-panel">
+                        <h5>Statistike</h5>
+                        <div class="stat-item">
+                            <span class="stat-number" id="total-channels">0</span>
+                            <span>Ukupno Kanala</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="active-streams">0</span>
+                            <span>Aktivni Stream-ovi</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Channels List -->
+            <div class="col-lg-8">
+                <div class="channels-container">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4><i class="fas fa-list"></i> Kanali</h4>
+                        <div class="input-group" style="width: 300px;">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" id="search-input" class="form-control" placeholder="Pretraži kanale...">
+                        </div>
+                    </div>
+                    
+                    <div id="channels-list">
+                        <div class="text-center py-5">
+                            <i class="fas fa-spinner fa-spin fa-3x text-primary"></i>
+                            <p class="mt-3">Učitavam kanale...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Progress notifications -->
+    <div id="progress-container" class="progress-container"></div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Socket.IO -->
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <script>
+        // Initialize Socket.IO
+        const socket = io();
+        
+        // Global variables
+        let channels = [];
+        let gpuInfo = { nvidia: false, amd: false };
+        let activeStreams = new Set();
+        let vlcInstalled = false;
+        
+        // DOM elements
+        const channelsList = document.getElementById('channels-list');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const searchInput = document.getElementById('search-input');
+        const qualitySelect = document.getElementById('quality-select');
+        const gpuSelect = document.getElementById('gpu-select');
+        const totalChannelsSpan = document.getElementById('total-channels');
+        const activeStreamsSpan = document.getElementById('active-streams');
+        const progressContainer = document.getElementById('progress-container');
+        const nvidiaStatus = document.getElementById('nvidia-status');
+        const amdStatus = document.getElementById('amd-status');
+        
+        // Socket event listeners
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            fetchGPUInfo();
+            checkVLCInstallation();
+        });
+        
+        socket.on('channelsUpdated', (channelsData) => {
+            channels = channelsData;
+            renderChannels();
+            updateStats();
+        });
+        
+        socket.on('gpuInfo', (info) => {
+            gpuInfo = info;
+            updateGPUStatus();
+        }
+        
+        async function checkVLCInstallation() {
+            try {
+                const response = await fetch('/api/check-vlc');
+                const result = await response.json();
+                vlcInstalled = result.installed;
+            } catch (error) {
+                console.error('Error checking VLC installation:', error);
+                vlcInstalled = false;
+            }
+        });
+        
+        socket.on('streamStarted', (data) => {
+            activeStreams.add(data.channelId);
+            showNotification(`Stream pokrennut za kanal ID: ${data.channelId}`, 'success');
+            updateStats();
+        });
+        
+        socket.on('streamStopped', (data) => {
+            activeStreams.delete(data.channelId);
+            showNotification(`Stream zaustavljen za kanal ID: ${data.channelId}`, 'info');
+            updateStats();
+        });
+        
+        socket.on('transcodingProgress', (data) => {
+            updateProgressNotification(data);
+        });
+        
+        socket.on('transcodingError', (data) => {
+            showNotification(`Greška u transkodovanju: ${data.error}`, 'error');
+        });
+        
+        // Functions
+        async function fetchGPUInfo() {
+            try {
+                const response = await fetch('/api/gpu-info');
+                const info = await response.json();
+                gpuInfo = info;
+                updateGPUStatus();
+            } catch (error) {
+                console.error('Error fetching GPU info:', error);
+            }
+        }
+        
+        function updateGPUStatus() {
+            nvidiaStatus.className = `gpu-badge ${gpuInfo.nvidia ? 'gpu-available' : 'gpu-unavailable'}`;
+            nvidiaStatus.innerHTML = `<i class="fas fa-microchip"></i> NVIDIA: ${gpuInfo.nvidia ? 'Dostupna' : 'Nedostupna'}`;
+            
+            amdStatus.className = `gpu-badge ${gpuInfo.amd ? 'gpu-available' : 'gpu-unavailable'}`;
+            amdStatus.innerHTML = `<i class="fas fa-microchip"></i> AMD: ${gpuInfo.amd ? 'Dostupna' : 'Nedostupna'}`;
+        }
+        
+        function renderChannels(filteredChannels = null) {
+            const channelsToRender = filteredChannels || channels;
+            
+            if (channelsToRender.length === 0) {
+                channelsList.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="fas fa-tv fa-3x text-muted"></i>
+                        <p class="mt-3">Nema dostupnih kanala</p>
+                        <button class="btn btn-primary" onclick="refreshPlaylist()">
+                            <i class="fas fa-sync-alt"></i> Učitaj Playlistu
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            const html = channelsToRender.map(channel => {
+                const statusClass = channel.isActive ? 
+                    (channel.transcoding ? 'channel-transcoding' : 'channel-active') : '';
+                
+                const statusBadge = channel.isActive ? 
+                    (channel.transcoding ? 
+                        `<span class="status-badge status-transcoding">Transkoduje</span>` :
+                        `<span class="status-badge status-active">Aktivan</span>`
+                    ) : 
+                    `<span class="status-badge status-inactive">Neaktivan</span>`;
+                
+                const bandwidthInfo = channel.isActive && channel.bandwidth !== undefined ? 
+                    `<div class="bandwidth-info">
+                        <i class="fas fa-tachometer-alt"></i>
+                        ${channel.bandwidth.toFixed(2)} MB/s 
+                        <span style="color: #666;">(${(channel.totalData || 0).toFixed(1)} MB)</span>
+                    </div>` : '';
+                
+                const vlcButton = channel.isActive ? 
+                    `<button class="btn btn-sm vlc-button ${!vlcInstalled ? 'vlc-not-installed' : ''}" 
+                             onclick="launchVLC(${channel.id})" 
+                             ${!vlcInstalled ? 'disabled title="VLC nije instaliran"' : 'title="Otvori u VLC"'}>
+                        <i class="fas fa-play-circle"></i> VLC
+                    </button>` : '';
+                
+                return `
+                    <div class="card channel-card ${statusClass}">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <img src="${channel.logo || '/placeholder-logo.png'}" 
+                                     alt="${channel.name}" 
+                                     class="channel-logo"
+                                     onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIGZpbGw9IiNjY2MiIHZpZXdCb3g9IjAgMCAyNCAyNCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMjEgNkg5djEwaDEyVjZtLTItM0g1djEwaDE0VjN6Ii8+PC9zdmc+'">
+                                
+                                <div class="channel-info">
+                                    <div class="channel-name">${channel.name}</div>
+                                    <div class="channel-group">
+                                        <i class="fas fa-folder"></i> ${channel.group}
+                                    </div>
+                                    ${bandwidthInfo}
+                                    <div class="channel-url">${channel.url}</div>
+                                </div>
+                                
+                                <div class="channel-controls">
+                                    ${statusBadge}
+                                    
+                                    ${!channel.isActive ? `
+                                        <button class="btn btn-success btn-sm" onclick="startStream(${channel.id})">
+                                            <i class="fas fa-play"></i> Start
+                                        </button>
+                                    ` : `
+                                        <button class="btn btn-danger btn-sm" onclick="stopStream(${channel.id})">
+                                            <i class="fas fa-stop"></i> Stop
+                                        </button>
+                                        <button class="btn btn-info btn-sm" onclick="openStream(${channel.id})">
+                                            <i class="fas fa-external-link-alt"></i> Otvori
+                                        </button>
+                                        ${vlcButton}
+                                    `}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            channelsList.innerHTML = html;
+        }
+        
+        function updateStats() {
+            totalChannelsSpan.textContent = channels.length;
+            activeStreamsSpan.textContent = channels.filter(c => c.isActive).length;
+        }
+        
+        async function refreshPlaylist() {
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Osvježava...';
+            
+            try {
+                const response = await fetch('/api/refresh-playlist', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification(`Uspješno učitano ${result.count} kanala`, 'success');
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                showNotification(`Greška: ${error.message}`, 'error');
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Osvježi Playlistu';
+            }
+        }
+        
+        async function startStream(channelId) {
+            const profile = qualitySelect.value;
+            const gpu = gpuSelect.value;
+            
+            try {
+                const response = await fetch(`/api/start-stream/${channelId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profile, gpu })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification(`Stream pokrennut za kanal ${channelId}`, 'success');
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                showNotification(`Greška pokretanja: ${error.message}`, 'error');
+            }
+        }
+        
+        async function stopStream(channelId) {
+            try {
+                const response = await fetch(`/api/stop-stream/${channelId}`, { method: 'POST' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification(`Stream zaustavljen za kanal ${channelId}`, 'info');
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                showNotification(`Greška zaustavljanja: ${error.message}`, 'error');
+            }
+        }
+        
+        function openStream(channelId) {
+            const streamUrl = `/stream/${channelId}/playlist.m3u8`;
+            window.open(streamUrl, '_blank');
+        }
+        
+        async function launchVLC(channelId) {
+            if (!vlcInstalled) {
+                showNotification('VLC nije instaliran. Molimo instalirajte VLC media player.', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/launch-vlc/${channelId}`, { method: 'POST' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification(`VLC pokrennut za kanal ${channelId}`, 'success');
+                } else {
+                    if (result.error === 'VLC not installed') {
+                        showNotification('VLC nije instaliran. Instalirajte ga koristeći: sudo apt install vlc', 'error');
+                    } else {
+                        throw new Error(result.error);
+                    }
+                }
+            } catch (error) {
+                showNotification(`Greška pokretanja VLC: ${error.message}`, 'error');
+            }
+        }
+        
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `progress-item alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'}`;
+            notification.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>${message}</span>
+                    <button type="button" class="btn-close" onclick="this.parentElement.parentElement.remove()"></button>
+                </div>
+            `;
+            
+            progressContainer.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+        
+        function updateProgressNotification(data) {
+            const existingNotification = document.getElementById(`progress-${data.channelId}`);
+            
+            if (existingNotification) {
+                existingNotification.querySelector('.progress-text').textContent = 
+                    `Transkoduje kanal ${data.channelId}...`;
+            } else {
+                const notification = document.createElement('div');
+                notification.id = `progress-${data.channelId}`;
+                notification.className = 'progress-item';
+                notification.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="progress-text">Transkoduje kanal ${data.channelId}...</span>
+                        <i class="fas fa-cog fa-spin text-warning"></i>
+                    </div>
+                `;
+                
+                progressContainer.appendChild(notification);
+            }
+        }
+        
+        // Search functionality
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            
+            if (searchTerm === '') {
+                renderChannels();
+            } else {
+                const filteredChannels = channels.filter(channel => 
+                    channel.name.toLowerCase().includes(searchTerm) ||
+                    channel.group.toLowerCase().includes(searchTerm)
+                );
+                renderChannels(filteredChannels);
+            }
+        });
+        
+        // Event listeners
+        refreshBtn.addEventListener('click', refreshPlaylist);
+        
+        // Initialize
+        refreshPlaylist();
+    </script>
+</body>
+</html>

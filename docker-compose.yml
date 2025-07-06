@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  tvh-streamer:
+    build: .
+    container_name: tvh-streamer-transcoder
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+      - "8080:8080"
+    volumes:
+      - ./streams:/usr/src/app/streams
+      - ./logs:/usr/src/app/logs
+      - ./config:/usr/src/app/config
+    environment:
+      - NODE_ENV=production
+      - TVH_URL=http://192.168.100.3:9981/playlist
+      - TVH_HOST=192.168.100.3
+      - TVH_PORT=9981
+      - LOG_LEVEL=info
+      - MAX_CONCURRENT_STREAMS=10
+    devices:
+      # NVIDIA GPU support (comment out if not using NVIDIA)
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      # AMD GPU support (comment out if not using AMD)
+      - /dev/dri:/dev/dri
+    networks:
+      - tvh-network
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/channels"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    container_name: tvh-streamer-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - tvh-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: tvh-streamer-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/ssl:ro
+      - ./streams:/var/www/streams:ro
+    depends_on:
+      - tvh-streamer
+    networks:
+      - tvh-network
+
+volumes:
+  redis_data:
+
+networks:
+  tvh-network:
+    driver: bridge
