@@ -14,6 +14,8 @@ chmod +x install.sh
 ./install.sh
 ```
 
+**Napomena**: Tokom instalacije možete vidjeti ROCm repo error (404) - ovo je poznata greška i može se ignorisati.
+
 **Auto-install instalira:**
 - ✅ Node.js 18+
 - ✅ FFmpeg sa GPU podrškom  
