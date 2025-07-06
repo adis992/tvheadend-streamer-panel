@@ -185,19 +185,30 @@ transcoding: {
 
 ## 📱 Korištenje
 
-**Web Interface**: http://localhost:3000 (glavni panel za kontrolu)
+**Web Interface**: 
+- **Osnovni panel**: http://localhost:3000 (jednostavan interface)  
+- **Napredni panel**: http://localhost:3000/advanced.html (kompletan sistem profila)
 
-1. **Otvorite web interface**: http://localhost:3000
-2. **Osvježite playlistu**: Kliknite "Osvježi Playlistu" za učitavanje kanala
-3. **Pokrenite stream**: Odaberite kanal i kliknite "Start"
-4. **Odaberite kvalitet**: Koristite dropdown za odabir profila
+### Napredni Panel Features:
+- ✅ **20+ FFmpeg profila** - Quality, GPU, Specialized, HEVC kategorije
+- ✅ **Real-time kontrola** - Individualno upravljanje streamovima  
+- ✅ **GPU optimizacija** - Automatski odabir NVIDIA/AMD/CPU encodera
+- ✅ **Live monitoring** - Bandwidth tracking, system logs, transcoding progress
+- ✅ **Batch operacije** - Start/stop svih streamova odjednom
+- ✅ **Profile preview** - Detaljni prikaz encoding parametara
+
+### Osnovni Workflow:
+1. **Otvorite napredni panel**: http://localhost:3000/advanced.html
+2. **Osvježite playlistu**: Kliknite "Refresh Playlist" za učitavanje kanala
+3. **Odaberite profil**: Izaberite iz kategorija (Quality/GPU/Specialized/HEVC)
+4. **Pokrenite stream**: Kliknite "Start" na željenom kanalu
 5. **VLC Play**: Kliknite "VLC" dugme za direktno puštanje u VLC playeru
-6. **Otvorite stream**: Kliknite "Otvori" za pristup HLS stream-u (port 8080)
+6. **Monitoring**: Pratite bandwidth, logs i transcoding progress u real-time
 
 ### HLS Stream URL Format
 
 **Portovi:**
-- **Web Interface**: http://localhost:3000 (glavni panel)
+- **Web Interface**: http://localhost:3000 (osnovni i napredni panel)
 - **HLS Streams**: http://localhost:8080/stream/{channelId}/playlist.m3u8
 
 ```

@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TVHeadend Streamer - Advanced Transcoding Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .channel-card {
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        .channel-card.active {
+            border-left-color: #28a745;
+            background-color: #f8fff8;
+        }
+        .channel-card.transcoding {
+            border-left-color: #007bff;
+            background-color: #f0f8ff;
+        }
+        .bandwidth-bar {
+            height: 20px;
+            background: linear-gradient(90deg, #28a745 0%, #ffc107 50%, #dc3545 100%);
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        .bandwidth-indicator {
+            height: 100%;
+            background: rgba(255,255,255,0.8);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+        .profile-selector {
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+        }
+        .profile-category {
+            margin-bottom: 15px;
+        }
+        .profile-item {
+            cursor: pointer;
+            padding: 8px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            margin: 5px;
+            background: white;
+            transition: all 0.3s ease;
+        }
+        .profile-item:hover {
+            background: #e9ecef;
+            border-color: #6c757d;
+        }
+        .profile-item.selected {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .gpu-status {
+            border-radius: 50px;
+            padding: 5px 15px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .gpu-nvidia { background: #76b900; color: white; }
+        .gpu-amd { background: #ed1c24; color: white; }
+        .gpu-cpu { background: #6c757d; color: white; }
+        .stream-controls {
+            border-top: 1px solid #dee2e6;
+            padding-top: 15px;
+            margin-top: 15px;
+        }
+        .status-icon {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-offline { background: #6c757d; }
+        .status-online { background: #28a745; }
+        .status-transcoding { background: #007bff; animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .log-output {
+            background: #1e1e1e;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            height: 300px;
+            overflow-y: auto;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #333;
+        }
+        .profile-preview {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+        .header-stats {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container-fluid py-4">
+        <!-- Header with stats -->
+        <div class="header-stats">
+            <div class="row">
+                <div class="col-md-3">
+                    <h1 class="h3 mb-0"><i class="fas fa-video"></i> TVHeadend Streamer</h1>
+                    <p class="mb-0">Advanced Transcoding Panel</p>
+                </div>
+                <div class="col-md-3 text-center">
+                    <div class="h4 mb-0" id="totalChannels">0</div>
+                    <small>Total Channels</small>
+                </div>
+                <div class="col-md-3 text-center">
+                    <div class="h4 mb-0" id="activeStreams">0</div>
+                    <small>Active Streams</small>
+                </div>
+                <div class="col-md-3 text-center">
+                    <div class="h4 mb-0" id="totalBandwidth">0 MB/s</div>
+                    <small>Total Bandwidth</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Left Panel - Controls -->
+            <div class="col-lg-4">
+                <!-- Playlist Control -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-list"></i> Playlist Control</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-primary w-100 mb-3" onclick="refreshPlaylist()">
+                            <i class="fas fa-sync-alt"></i> Refresh Playlist
+                        </button>
+                        <div class="text-muted small">
+                            <i class="fas fa-info-circle"></i> Load channels from TVHeadend server
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GPU Status -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-microchip"></i> GPU Status</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="gpuStatus">Loading...</div>
+                    </div>
+                </div>
+
+                <!-- Profile Selector -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-cogs"></i> Transcoding Profiles</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="profileSelector">
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading profiles...</span>
+                                </div>
+                                <p class="mt-2">Loading profiles...</p>
+                            </div>
+                        </div>
+                        <div id="profilePreview" class="profile-preview" style="display: none;">
+                            <strong>Selected Profile:</strong>
+                            <div id="profileDetails"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Global Controls -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-play-circle"></i> Stream Controls</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-3">
+                            <i class="fas fa-info-circle"></i> 
+                            Each channel must be started individually with selected profile. No auto-transcoding.
+                        </p>
+                        <div class="text-center">
+                            <i class="fas fa-hand-pointer fa-2x text-primary mb-2"></i>
+                            <p class="small text-muted">Select profile above, then click Start on individual channels</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Channels -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-tv"></i> Channels (<span id="channelCount">0</span>)</h5>
+                        <div>
+                            <input type="text" class="form-control form-control-sm" id="channelSearch" 
+                                   placeholder="Search channels..." style="width: 200px;">
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="channelList" class="row">
+                            <div class="col-12 text-center py-5">
+                                <i class="fas fa-tv fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No channels loaded. Click "Refresh Playlist" to load channels.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Panel -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-terminal"></i> System Logs</h5>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="clearLogs()">
+                            <i class="fas fa-trash"></i> Clear
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="logOutput" class="log-output">
+                            <div class="text-success">[INFO] TVHeadend Streamer Panel Ready</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
+    <script>
+        // Global variables
+        let channels = [];
+        let profiles = {};
+        let selectedProfile = { category: 'quality', name: 'hd_720p' };
+        let gpuInfo = {};
+        let socket;
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSocket();
+            loadGPUInfo();
+            loadProfiles();
+            setupSearch();
+            
+            // Auto-refresh every 30 seconds
+            setInterval(updateBandwidthStats, 5000);
+        });
+
+        // Socket.IO initialization
+        function initializeSocket() {
+            socket = io();
+            
+            socket.on('connect', function() {
+                addLog('[INFO] Connected to server', 'success');
+            });
+            
+            socket.on('disconnect', function() {
+                addLog('[ERROR] Disconnected from server', 'danger');
+            });
+            
+            socket.on('channelsUpdated', function(data) {
+                channels = data;
+                renderChannels();
+                updateStats();
+            });
+            
+            socket.on('streamStarted', function(data) {
+                addLog(`[INFO] Stream started - Channel ${data.channelId}, Profile: ${data.profile}, GPU: ${data.gpu}`, 'success');
+                updateChannelStatus(data.channelId, 'transcoding');
+            });
+            
+            socket.on('streamStopped', function(data) {
+                addLog(`[INFO] Stream stopped - Channel ${data.channelId}`, 'warning');
+                updateChannelStatus(data.channelId, 'offline');
+            });
+            
+            socket.on('transcodingProgress', function(data) {
+                updateTranscodingProgress(data);
+            });
+            
+            socket.on('transcodingError', function(data) {
+                addLog(`[ERROR] Transcoding error - Channel ${data.channelId}: ${data.error}`, 'danger');
+            });
+        }
+
+        // Load GPU information
+        async function loadGPUInfo() {
+            try {
+                const response = await fetch('/api/gpu-info');
+                gpuInfo = await response.json();
+                renderGPUStatus();
+            } catch (error) {
+                addLog(`[ERROR] Failed to load GPU info: ${error.message}`, 'danger');
+            }
+        }
+
+        // Load profiles
+        async function loadProfiles() {
+            try {
+                const response = await fetch('/api/profiles');
+                profiles = await response.json();
+                renderProfileSelector();
+            } catch (error) {
+                addLog(`[ERROR] Failed to load profiles: ${error.message}`, 'danger');
+            }
+        }
+
+        // Render GPU status
+        function renderGPUStatus() {
+            const container = document.getElementById('gpuStatus');
+            let html = '';
+            
+            if (gpuInfo.nvidia) {
+                html += '<div class="gpu-status gpu-nvidia mb-2"><i class="fas fa-check"></i> NVIDIA GPU Available</div>';
+            }
+            
+            if (gpuInfo.amd) {
+                html += '<div class="gpu-status gpu-amd mb-2"><i class="fas fa-check"></i> AMD GPU Available</div>';
+            }
+            
+            if (!gpuInfo.nvidia && !gpuInfo.amd) {
+                html += '<div class="gpu-status gpu-cpu mb-2"><i class="fas fa-microchip"></i> CPU Only</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        // Render profile selector
+        function renderProfileSelector() {
+            const container = document.getElementById('profileSelector');
+            let html = '';
+            
+            for (const [categoryName, categoryProfiles] of Object.entries(profiles)) {
+                html += `
+                    <div class="profile-category">
+                        <h6 class="text-uppercase text-muted mb-2">${categoryName.replace('_', ' ')}</h6>
+                        <div class="d-flex flex-wrap">
+                `;
+                
+                for (const [profileName, profileData] of Object.entries(categoryProfiles)) {
+                    const isSelected = selectedProfile.category === categoryName && selectedProfile.name === profileName;
+                    html += `
+                        <div class="profile-item ${isSelected ? 'selected' : ''}" 
+                             onclick="selectProfile('${categoryName}', '${profileName}')">
+                            <div class="fw-bold">${profileData.name}</div>
+                            <div class="small text-muted">${profileData.description}</div>
+                        </div>
+                    `;
+                }
+                
+                html += '</div></div>';
+            }
+            
+            container.innerHTML = html;
+            updateProfilePreview();
+        }
+
+        // Select profile
+        function selectProfile(category, name) {
+            selectedProfile = { category, name };
+            renderProfileSelector();
+            updateProfilePreview();
+        }
+
+        // Update profile preview
+        function updateProfilePreview() {
+            const preview = document.getElementById('profilePreview');
+            const details = document.getElementById('profileDetails');
+            
+            if (selectedProfile.category && selectedProfile.name) {
+                const profile = profiles[selectedProfile.category][selectedProfile.name];
+                
+                let html = `
+                    <div><strong>${profile.name}</strong></div>
+                    <div class="small">${profile.description}</div>
+                    <div class="mt-2">
+                        <strong>Video:</strong> ${profile.video.codec} @ ${profile.video.bitrate || 'auto'}<br>
+                        <strong>Resolution:</strong> ${profile.video.width}x${profile.video.height}<br>
+                        <strong>Audio:</strong> ${profile.audio.codec} @ ${profile.audio.bitrate || 'auto'}
+                    </div>
+                `;
+                
+                details.innerHTML = html;
+                preview.style.display = 'block';
+            } else {
+                preview.style.display = 'none';
+            }
+        }
+
+        // Refresh playlist
+        async function refreshPlaylist() {
+            try {
+                addLog('[INFO] Refreshing playlist...', 'info');
+                const response = await fetch('/api/refresh-playlist', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    addLog(`[INFO] Playlist refreshed - ${result.count} channels loaded`, 'success');
+                } else {
+                    addLog(`[ERROR] Failed to refresh playlist: ${result.error}`, 'danger');
+                }
+            } catch (error) {
+                addLog(`[ERROR] Failed to refresh playlist: ${error.message}`, 'danger');
+            }
+        }
+
+        // Render channels
+        function renderChannels() {
+            const container = document.getElementById('channelList');
+            const searchTerm = document.getElementById('channelSearch').value.toLowerCase();
+            
+            const filteredChannels = channels.filter(channel => 
+                channel.name.toLowerCase().includes(searchTerm)
+            );
+            
+            if (filteredChannels.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12 text-center py-5">
+                        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No channels found</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            filteredChannels.forEach(channel => {
+                const statusClass = channel.transcoding ? 'transcoding' : (channel.isActive ? 'active' : '');
+                const statusIcon = channel.transcoding ? 'status-transcoding' : (channel.isActive ? 'status-online' : 'status-offline');
+                
+                html += `
+                    <div class="col-lg-6 mb-3">
+                        <div class="card channel-card ${statusClass}" data-channel-id="${channel.id}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="card-title mb-0">
+                                        <span class="status-icon ${statusIcon}"></span>
+                                        ${channel.name}
+                                    </h6>
+                                    <small class="text-muted">#${channel.id}</small>
+                                </div>
+                                
+                                ${channel.transcoding ? `
+                                    <div class="mb-2">
+                                        <small class="text-muted">Profile: ${channel.profile || 'Unknown'}</small><br>
+                                        <small class="text-muted">GPU: ${channel.gpu || 'Unknown'}</small>
+                                    </div>
+                                    <div class="bandwidth-bar mb-2">
+                                        <div class="bandwidth-indicator" style="width: 30%"></div>
+                                    </div>
+                                    <small class="text-muted">Bandwidth: <span id="bandwidth-${channel.id}">0 MB/s</span></small>
+                                ` : `
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-cog"></i> Will use: <strong>${selectedProfile.category}.${selectedProfile.name}</strong>
+                                        </small><br>
+                                        <small class="text-muted">
+                                            <i class="fas fa-microchip"></i> GPU: <strong>AMD Priority</strong>
+                                        </small>
+                                    </div>
+                                `}
+                                
+                                <div class="stream-controls">
+                                    <div class="btn-group w-100" role="group">
+                                        ${channel.transcoding ? `
+                                            <button class="btn btn-danger btn-sm" onclick="stopStream(${channel.id})">
+                                                <i class="fas fa-stop"></i> Stop
+                                            </button>
+                                            <button class="btn btn-success btn-sm" onclick="launchVLC(${channel.id})">
+                                                <i class="fas fa-play"></i> VLC
+                                            </button>
+                                        ` : `
+                                            <button class="btn btn-primary btn-sm" onclick="startStream(${channel.id})">
+                                                <i class="fas fa-play"></i> Start
+                                            </button>
+                                        `}
+                                        <button class="btn btn-outline-secondary btn-sm" onclick="copyStreamUrl(${channel.id})" 
+                                                ${!channel.transcoding ? 'disabled' : ''}>
+                                            <i class="fas fa-copy"></i> Copy URL
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            updateStats();
+        }
+
+        // Start stream
+        async function startStream(channelId) {
+            try {
+                addLog(`[INFO] Starting stream for channel ${channelId}...`, 'info');
+                
+                const response = await fetch(`/api/start-stream/${channelId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        profileCategory: selectedProfile.category,
+                        profileName: selectedProfile.name,
+                        gpuType: 'auto'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    addLog(`[INFO] Stream started successfully for channel ${channelId}`, 'success');
+                } else {
+                    addLog(`[ERROR] Failed to start stream: ${result.error}`, 'danger');
+                }
+            } catch (error) {
+                addLog(`[ERROR] Failed to start stream: ${error.message}`, 'danger');
+            }
+        }
+
+        // Stop stream
+        async function stopStream(channelId) {
+            try {
+                const response = await fetch(`/api/stop-stream/${channelId}`, { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    addLog(`[INFO] Stream stopped for channel ${channelId}`, 'success');
+                } else {
+                    addLog(`[ERROR] Failed to stop stream: ${result.error}`, 'danger');
+                }
+            } catch (error) {
+                addLog(`[ERROR] Failed to stop stream: ${error.message}`, 'danger');
+            }
+        }
+
+        // Launch VLC
+        async function launchVLC(channelId) {
+            try {
+                const response = await fetch(`/api/launch-vlc/${channelId}`, { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    addLog(`[INFO] VLC launched for channel ${channelId}`, 'success');
+                } else {
+                    addLog(`[ERROR] Failed to launch VLC: ${result.error}`, 'danger');
+                }
+            } catch (error) {
+                addLog(`[ERROR] Failed to launch VLC: ${error.message}`, 'danger');
+            }
+        }
+
+        // Copy stream URL
+        function copyStreamUrl(channelId) {
+            const url = `http://localhost:8080/stream/${channelId}/playlist.m3u8`;
+            navigator.clipboard.writeText(url).then(() => {
+                addLog(`[INFO] Stream URL copied to clipboard`, 'success');
+            });
+        }
+
+        // Update stats
+        function updateStats() {
+            document.getElementById('totalChannels').textContent = channels.length;
+            document.getElementById('activeStreams').textContent = channels.filter(c => c.transcoding).length;
+            document.getElementById('channelCount').textContent = channels.length;
+            
+            // Calculate total bandwidth
+            let totalBandwidth = 0;
+            channels.forEach(channel => {
+                if (channel.bandwidth) {
+                    totalBandwidth += parseFloat(channel.bandwidth);
+                }
+            });
+            document.getElementById('totalBandwidth').textContent = `${totalBandwidth.toFixed(1)} MB/s`;
+        }
+
+        // Update channel status
+        function updateChannelStatus(channelId, status) {
+            const channelCard = document.querySelector(`[data-channel-id="${channelId}"]`);
+            if (channelCard) {
+                channelCard.className = `card channel-card ${status}`;
+            }
+        }
+
+        // Update transcoding progress
+        function updateTranscodingProgress(data) {
+            // Update bandwidth display
+            if (data.bandwidth) {
+                const bandwidthElement = document.getElementById(`bandwidth-${data.channelId}`);
+                if (bandwidthElement) {
+                    bandwidthElement.textContent = `${data.bandwidth} MB/s`;
+                }
+            }
+            
+            // Log progress
+            if (data.output && data.output.includes('frame=')) {
+                const logLine = data.output.split('\\n').find(line => line.includes('frame='));
+                if (logLine) {
+                    addLog(`[TRANSCODE] Channel ${data.channelId}: ${logLine.trim()}`, 'info');
+                }
+            }
+        }
+
+        // Search setup
+        function setupSearch() {
+            document.getElementById('channelSearch').addEventListener('input', function() {
+                renderChannels();
+            });
+        }
+
+        // Update bandwidth stats
+        async function updateBandwidthStats() {
+            try {
+                const response = await fetch('/api/active-streams');
+                const streams = await response.json();
+                
+                streams.forEach(stream => {
+                    const bandwidthElement = document.getElementById(`bandwidth-${stream.channelId}`);
+                    if (bandwidthElement) {
+                        bandwidthElement.textContent = `${stream.bandwidth || 0} MB/s`;
+                    }
+                });
+            } catch (error) {
+                // Silently handle errors
+            }
+        }
+
+        // Add log entry
+        function addLog(message, type = 'info') {
+            const logOutput = document.getElementById('logOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            const colors = {
+                success: '#28a745',
+                danger: '#dc3545',
+                warning: '#ffc107',
+                info: '#17a2b8'
+            };
+            
+            const logEntry = document.createElement('div');
+            logEntry.style.color = colors[type] || '#00ff00';
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            
+            logOutput.appendChild(logEntry);
+            logOutput.scrollTop = logOutput.scrollHeight;
+            
+            // Keep only last 100 log entries
+            while (logOutput.children.length > 100) {
+                logOutput.removeChild(logOutput.firstChild);
+            }
+        }
+
+        // Clear logs
+        function clearLogs() {
+            document.getElementById('logOutput').innerHTML = '<div class="text-success">[INFO] TVHeadend Streamer Panel Ready</div>';
+        }
+    </script>
+</body>
+</html>
