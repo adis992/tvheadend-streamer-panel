@@ -6,17 +6,39 @@ Napredna platforma za streaming i transkodovanje TV kanala sa TVHeadend servera 
 ![Node.js](https://img.shields.io/badge/node.js-18+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
 
+# TVHeadend Streamer - GPU Transcoder
+
+Napredna platforma za streaming i transkodovanje TV kanala sa TVHeadend servera koristeći GPU akceleraciju (NVIDIA i AMD).
+
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Node.js](https://img.shields.io/badge/node.js-18+-green.svg)
+![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
+
 ## 🚀 Karakteristike
 
-- **GPU Accelerated Transcoding**: Podrška za NVIDIA (NVENC) i AMD (AMF) GPU enkodere
-- **Real-time Streaming**: HLS (HTTP Live Streaming) sa podešljivim kvalitetom
-- **Web Interface**: Moderna, responzivna web aplikacija
-- **VLC Integration**: Direktno pokretanje stream-a iz browser-a
-- **Bandwidth Monitoring**: Real-time MB/s potrošnja po stream-u
-- **Multiple Profiles**: Niska (480p), Srednja (720p), Visoka (1080p) kvaliteta
-- **Auto-discovery**: Automatsko preuzimanje M3U playliste sa TVHeadend servera
-- **Live Monitoring**: Real-time status i progress monitoring
-- **Easy Deployment**: Automatski install script za sve Linux distribucije
+### 🎯 **Napredni Transcoding**
+- **GPU Accelerated**: NVIDIA (NVENC) i AMD (AMF) sa **AMD prioritetom**
+- **25+ FFmpeg Profila**: Od 360p do 4K, optimizovani za različite potrebe
+- **Individual Control**: Svaki kanal se pokreće posebno, **nema auto-transkodovanja**
+- **Real-time Progress**: Live monitoring sa bandwidth statistikama
+
+### 🎮 **Dual Web Interface**
+- **Basic Panel** (`/`): Jednostavan interface za početne korisnike
+- **Advanced Panel** (`/advanced.html`): Profesionalni panel sa profilima
+- **VLC Integration**: Direktno pokretanje streamova
+- **Profile Categories**: Quality, GPU-specific, Specialized, HEVC
+
+### 🔧 **Profile System**
+- **Quality Profiles**: 360p, 480p, 720p, 1080p, 4K
+- **GPU Profiles**: NVIDIA NVENC, AMD AMF optimized
+- **Specialized**: Mobile, Streaming, Archive, Bandwidth Saver
+- **HEVC Support**: H.265 profili za bolju efikasnost
+
+### ⚡ **Performance**
+- **AMD GPU Priority**: Automatski preferira AMD nad NVIDIA
+- **No Auto-Start**: Kanali se pokreću samo na zahtev
+- **Optimized Monitoring**: Bandwidth tracking samo za aktivne streamove
+- **Non-blocking Startup**: Server se pokreće bez čekanja playlist-e
 
 ## ⚡ Brza Instalacija na Novom PC-u
 
@@ -39,6 +61,34 @@ sudo systemctl start tvh-streamer
 ```
 
 **I to je sve! Service se automatski pokreće na boot-u.**
+
+## 🎮 Web Paneli
+
+### 🟢 **Basic Panel** - `http://localhost:3000`
+- Jednostavan interface za početne korisnike  
+- Brz setup sa osnovnim profilima (Low/Medium/High)
+- Idealan za brzo testiranje i osnovnu upotrebu
+
+### 🔥 **Advanced Panel** - `http://localhost:3000/advanced.html`
+- **PREPORUČENO za profesionalnu upotrebu**
+- 25+ detaljnih FFmpeg profila
+- Individual channel control (svaki kanal posebno)
+- Real-time transcoding progress sa logovima
+- Bandwidth monitoring i GPU status
+- Profile kategorije:
+  - **Quality**: 360p → 4K optimizovani profili
+  - **GPU**: NVIDIA NVENC i AMD AMF specifični profili  
+  - **Specialized**: Mobile, Streaming, Archive, Bandwidth Saver
+  - **HEVC**: H.265 profili za bolju kompresiju
+
+### ⚡ **Način Rada**
+1. **Load channels**: Refresh Playlist dugme
+2. **Select profile**: Odaberi iz kategorija (AMD GPU prioritet)
+3. **Start individually**: Svaki kanal se pokreće posebno
+4. **Monitor progress**: Real-time logs i bandwidth
+5. **VLC launch**: Direct play dugme za testiranje
+
+**💡 Tip**: Koristite Advanced panel za produkciju - ima sve opcije!
 
 ## 📋 Sistemski Zahtjevi
 
