@@ -1,42 +1,39 @@
-# TVHeadend Streamer - Quick Start Guide
+# 🚀 TVHeadend Streamer - QUICK START
 
-## 🚀 Brza Instalacija na Novom PC-u
+## ⚡ Na Novom PC-u (sve što treba!)
 
 ### 1. Clone Repository
 ```bash
-git clone <your-repository-url>
-cd Tvh_Streamer_transcoderGPU
+git clone https://github.com/VASE_USERNAME/VASE_REPO_NAME.git
+cd tvh-streamer-transcoder
 ```
 
-### 2. Auto-Install (sve što treba)
+### 2. Pokretanje Auto-Install (instalira SVE!)
 ```bash
 chmod +x install.sh
 ./install.sh
 ```
 
-**Install script automatski instalira:**
+**Auto-install instalira:**
 - ✅ Node.js 18+
 - ✅ FFmpeg sa GPU podrškom  
-- ✅ NVIDIA drivere (ako ima NVIDIA GPU)
-- ✅ AMD drivere (ako ima AMD GPU)
+- ✅ NVIDIA/AMD drivere 
 - ✅ VLC media player
 - ✅ Systemd service (auto-start na boot)
 - ✅ Firewall konfiguraciju
 - ✅ Sve dependencies
 
-### 3. Konfiguracija TVHeadend IP-a
-Edituj `config.js` fajl i promeni IP adresu:
-```javascript
-tvheadend: {
-    url: 'http://TVOJA_IP:9981/playlist',
-    host: 'TVOJA_IP',
-    port: 9981
-}
+### 3. Konfigurisanje TVHeadend IP-a (ako nije 192.168.100.3)
+```bash
+nano config.js
+# Promeni:
+# url: 'http://VASA_IP:9981/playlist'
+# host: 'VASA_IP'
 ```
 
 ### 4. Pokretanje
 ```bash
-# Auto start kao service (radi i nakon restarta)
+# Service mode (auto-start na boot)
 sudo systemctl start tvh-streamer
 sudo systemctl status tvh-streamer
 
@@ -44,77 +41,39 @@ sudo systemctl status tvh-streamer
 npm start
 ```
 
-### 5. Pristup Web Interface-u
-- **Lokalno**: http://localhost:3000
-- **Remote**: http://SERVER_IP:3000
+## 🎮 Pristup Web Panel-u
 
-## 🎮 Kako Koristiti Panel
+**Web Interface**: http://localhost:3000
 
-1. **Osvježi Playlistu** - Učitava kanale sa TVHeadend servera
-2. **Odaberi Kvalitet** - Low/Medium/High/Ultra profili
-3. **Odaberi GPU** - Auto/NVIDIA/AMD/CPU preference
-4. **Start Stream** - Pokreće transkodovanje za kanal
-5. **VLC Play** - Direktno puštanje u VLC playeru
-6. **Bandwidth Monitor** - Prikazuje potrošnju u MB/s
+### Funkcije Panel-a:
+1. **Osvježi Playlistu** - Učitava kanale sa TVHeadend-a
+2. **Odaberi Kvalitet** - Low/Medium/High/Ultra
+3. **Odaberi GPU** - Auto/NVIDIA/AMD/CPU
+4. **Start Stream** - Pokreće transkodovanje
+5. **VLC Play** - Direktno pokreće VLC player
+6. **Bandwidth** - Prikazuje MB/s potrošnju
 
-## 🔧 Service Management
+## 🔧 Portovi
+
+- **Web Panel**: http://localhost:3000 (glavni interface)
+- **HLS Streams**: http://localhost:8080/stream/{id}/playlist.m3u8
+
+## �️ Service Management
 
 ```bash
-# Pokreni service
+# Pokreni
 sudo systemctl start tvh-streamer
 
-# Zaustavi service
+# Zaustavi
 sudo systemctl stop tvh-streamer
 
-# Restart service
-sudo systemctl restart tvh-streamer
-
-# Status service
+# Status
 sudo systemctl status tvh-streamer
 
 # Logovi
 sudo journalctl -u tvh-streamer -f
 ```
 
-## 🛠️ Troubleshooting
+## ⚡ TO JE SVE!
 
-### Proveri GPU Status
-```bash
-# NVIDIA
-nvidia-smi
-
-# AMD  
-radeontop
-lspci | grep -i amd
-```
-
-### Proveri FFmpeg Encoders
-```bash
-ffmpeg -encoders | grep h264
-```
-
-### Test TVHeadend Konekciju
-```bash
-curl -I http://YOUR_TVHEADEND_IP:9981/playlist
-```
-
-### Proveri Portove
-```bash
-netstat -tlnp | grep :3000
-```
-
-## 📱 Features Summary
-
-- **GPU Accelerated**: NVIDIA NVENC, AMD AMF encoders
-- **HLS Streaming**: HTTP Live Streaming output
-- **VLC Integration**: Direct launch iz web interface-a
-- **Bandwidth Monitoring**: Real-time MB/s tracking
-- **Auto Service**: Starts on boot, restarts on crash
-- **Multi-profile**: 480p, 720p, 1080p, 1440p
-- **Web Interface**: Modern responsive UI
-
-## 🔥 Ready to Go!
-
-Nakon instalacije, servis će se automatski pokrenuti na boot-u i sve će raditi!
-
-Web panel: **http://localhost:3000**
+Nakon `./install.sh` - sve radi automatski! 🚀

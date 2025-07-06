@@ -11,10 +11,34 @@ Napredna platforma za streaming i transkodovanje TV kanala sa TVHeadend servera 
 - **GPU Accelerated Transcoding**: Podrška za NVIDIA (NVENC) i AMD (AMF) GPU enkodere
 - **Real-time Streaming**: HLS (HTTP Live Streaming) sa podešljivim kvalitetom
 - **Web Interface**: Moderna, responzivna web aplikacija
+- **VLC Integration**: Direktno pokretanje stream-a iz browser-a
+- **Bandwidth Monitoring**: Real-time MB/s potrošnja po stream-u
 - **Multiple Profiles**: Niska (480p), Srednja (720p), Visoka (1080p) kvaliteta
 - **Auto-discovery**: Automatsko preuzimanje M3U playliste sa TVHeadend servera
 - **Live Monitoring**: Real-time status i progress monitoring
 - **Easy Deployment**: Automatski install script za sve Linux distribucije
+
+## ⚡ Brza Instalacija na Novom PC-u
+
+```bash
+# 1. Clone repository
+git clone https://github.com/yourusername/tvh-streamer-transcoder.git
+cd tvh-streamer-transcoder
+
+# 2. Pokretanje auto-install (instalira SVE!)
+./install.sh
+
+# 3. Edituj TVHeadend IP adresu (ako nije 192.168.100.3)
+nano config.js
+
+# 4. Pokreni service
+sudo systemctl start tvh-streamer
+
+# 5. Otvori web panel
+# http://localhost:3000
+```
+
+**I to je sve! Service se automatski pokreće na boot-u.**
 
 ## 📋 Sistemski Zahtjevi
 
@@ -161,15 +185,23 @@ transcoding: {
 
 ## 📱 Korištenje
 
+**Web Interface**: http://localhost:3000 (glavni panel za kontrolu)
+
 1. **Otvorite web interface**: http://localhost:3000
 2. **Osvježite playlistu**: Kliknite "Osvježi Playlistu" za učitavanje kanala
 3. **Pokrenite stream**: Odaberite kanal i kliknite "Start"
 4. **Odaberite kvalitet**: Koristite dropdown za odabir profila
-5. **Otvorite stream**: Kliknite "Otvori" za pristup HLS stream-u
+5. **VLC Play**: Kliknite "VLC" dugme za direktno puštanje u VLC playeru
+6. **Otvorite stream**: Kliknite "Otvori" za pristup HLS stream-u (port 8080)
 
 ### HLS Stream URL Format
+
+**Portovi:**
+- **Web Interface**: http://localhost:3000 (glavni panel)
+- **HLS Streams**: http://localhost:8080/stream/{channelId}/playlist.m3u8
+
 ```
-http://localhost:3000/stream/{channelId}/playlist.m3u8
+http://localhost:8080/stream/{channelId}/playlist.m3u8
 ```
 
 ## 🔍 Monitoring i Debugging
