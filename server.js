@@ -498,21 +498,26 @@ io.on('connection', (socket) => {
 // Initialize server
 async function initializeServer() {
     try {
+        // Define port
+        const PORT = process.env.PORT || 3000;
+        
         // Create directories
         await fs.ensureDir(config.streaming.outputDir);
         
         // Detect GPU
         await detectGPU();
         
-        // Fetch initial playlist
-        await fetchPlaylist();
-        
-        // Start server
-        const PORT = process.env.PORT || 3000;
+        // Start server first
         server.listen(PORT, () => {
             console.log(`TVHeadend Streamer running on port ${PORT}`);
             console.log(`Available GPUs:`, gpuInfo);
-            console.log(`Loaded ${channels.length} channels`);
+            
+            // Fetch initial playlist in background (non-blocking)
+            fetchPlaylist().then(() => {
+                console.log(`Loaded ${channels.length} channels`);
+            }).catch(error => {
+                console.log('Playlist fetch failed (will retry later):', error.message);
+            });
         });
         
     } catch (error) {
