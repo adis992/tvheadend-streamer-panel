@@ -7,7 +7,6 @@ const bodyParser = require('body-parser');
 const fs = require('fs-extra');
 const { spawn, exec } = require('child_process');
 const fetch = require('node-fetch');
-const ffmpegProfiles = require('./ffmpeg-profiles');
 
 const app = express();
 const server = http.createServer(app);
@@ -110,10 +109,9 @@ function parseM3U(content) {
                 url: '',
                 isActive: false,
                 transcoding: false,
-                profile: null, // No default profile
-                gpu: null,     // No default GPU
-                bandwidth: 0,  // MB/s
-                totalData: 0   // Total MB transferred
+                profile: 'medium',
+                bandwidth: 0, // MB/s
+                totalData: 0 // Total MB transferred
             };
         } else if (line && !line.startsWith('#') && currentChannel.name) {
             currentChannel.url = line;
@@ -171,8 +169,8 @@ function getFFmpegEncoder(gpu) {
     }
 }
 
-// Start transcoding stream with new profile system
-async function startTranscoding(channelId, profileCategory = 'quality', profileName = 'hd_720p', gpuType = 'auto') {
+// Start transcoding stream
+async function startTranscoding(channelId, profile = 'medium', gpu = 'auto') {
     const channel = channels.find(c => c.id === channelId);
     if (!channel) throw new Error('Channel not found');
     
@@ -181,149 +179,40 @@ async function startTranscoding(channelId, profileCategory = 'quality', profileN
         stopTranscoding(channelId);
     }
     
-    // Get profile configuration
-    let profile;
-    if (ffmpegProfiles[profileCategory] && ffmpegProfiles[profileCategory][profileName]) {
-        profile = ffmpegProfiles[profileCategory][profileName];
-    } else {
-        throw new Error(`Profile not found: ${profileCategory}.${profileName}`);
+    // Determine GPU to use
+    let selectedGPU = gpu;
+    if (gpu === 'auto') {
+        selectedGPU = gpuInfo.nvidia ? 'nvidia' : (gpuInfo.amd ? 'amd' : 'cpu');
     }
     
-    // Determine GPU to use and adjust codec if needed (AMD prioritet)
-    let selectedGPU = gpuType;
-    if (gpuType === 'auto') {
-        selectedGPU = gpuInfo.amd ? 'amd' : (gpuInfo.nvidia ? 'nvidia' : 'cpu');
-    }
-    
-    // Adjust codec based on GPU availability
-    let videoCodec = profile.video.codec;
-    if (selectedGPU === 'nvidia' && !gpuInfo.nvidia && videoCodec.includes('nvenc')) {
-        videoCodec = 'libx264'; // Fallback to CPU
-        selectedGPU = 'cpu';
-    }
-    if (selectedGPU === 'amd' && !gpuInfo.amd && videoCodec.includes('amf')) {
-        videoCodec = 'libx264'; // Fallback to CPU  
-        selectedGPU = 'cpu';
-    }
+    const encoder = getFFmpegEncoder(selectedGPU);
+    const profileConfig = config.transcoding.profiles[profile];
     
     // Create output directory
     const outputDir = path.join(config.streaming.outputDir, channelId.toString());
     await fs.ensureDir(outputDir);
     
-    // Build FFmpeg command arguments
+    // FFmpeg command
     const ffmpegArgs = [
         '-i', channel.url,
-        '-c:v', videoCodec
-    ];
-    
-    // Video encoding parameters
-    if (profile.video.width && profile.video.height) {
-        ffmpegArgs.push('-s', `${profile.video.width}x${profile.video.height}`);
-    }
-    
-    if (profile.video.bitrate) {
-        ffmpegArgs.push('-b:v', profile.video.bitrate);
-    }
-    
-    if (profile.video.preset) {
-        ffmpegArgs.push('-preset', profile.video.preset);
-    }
-    
-    if (profile.video.profile) {
-        ffmpegArgs.push('-profile:v', profile.video.profile);
-    }
-    
-    if (profile.video.level) {
-        ffmpegArgs.push('-level', profile.video.level);
-    }
-    
-    if (profile.video.crf) {
-        ffmpegArgs.push('-crf', profile.video.crf.toString());
-    }
-    
-    if (profile.video.fps) {
-        ffmpegArgs.push('-r', profile.video.fps.toString());
-    }
-    
-    if (profile.video.keyint) {
-        ffmpegArgs.push('-g', profile.video.keyint.toString());
-    }
-    
-    if (profile.video.tune) {
-        ffmpegArgs.push('-tune', profile.video.tune);
-    }
-    
-    // GPU-specific parameters
-    if (selectedGPU === 'nvidia' && videoCodec.includes('nvenc')) {
-        if (profile.video.gpu !== undefined) {
-            ffmpegArgs.push('-gpu', profile.video.gpu.toString());
-        }
-        if (profile.video.rc) {
-            ffmpegArgs.push('-rc', profile.video.rc);
-        }
-    }
-    
-    if (selectedGPU === 'amd' && videoCodec.includes('amf')) {
-        if (profile.video.rc) {
-            ffmpegArgs.push('-rc', profile.video.rc);
-        }
-    }
-    
-    // Audio encoding parameters
-    ffmpegArgs.push('-c:a', profile.audio.codec || 'aac');
-    
-    if (profile.audio.bitrate) {
-        ffmpegArgs.push('-b:a', profile.audio.bitrate);
-    }
-    
-    if (profile.audio.channels) {
-        ffmpegArgs.push('-ac', profile.audio.channels.toString());
-    }
-    
-    if (profile.audio.sample_rate) {
-        ffmpegArgs.push('-ar', profile.audio.sample_rate.toString());
-    }
-    
-    // HLS output parameters
-    ffmpegArgs.push(
+        '-c:v', encoder.video,
+        '-preset', encoder.preset,
+        ...encoder.extraArgs,
+        '-s', `${profileConfig.width}x${profileConfig.height}`,
+        '-b:v', profileConfig.bitrate,
+        '-c:a', 'aac',
+        '-b:a', '128k',
         '-f', 'hls',
         '-hls_time', config.streaming.hlsSegmentTime,
         '-hls_list_size', config.streaming.hlsListSize,
         '-hls_flags', 'delete_segments',
         '-hls_segment_filename', path.join(outputDir, 'segment_%03d.ts'),
         path.join(outputDir, 'playlist.m3u8')
-    );
+    ];
     
-    console.log(`Starting transcoding for channel ${channelId} with profile ${profileCategory}.${profileName} on ${selectedGPU}`);
-    console.log('FFmpeg args:', ffmpegArgs);
+    console.log('Starting FFmpeg with args:', ffmpegArgs);
     
     const ffmpeg = spawn('ffmpeg', ffmpegArgs);
-    
-    // Store stream info
-    activeStreams.set(channelId, {
-        process: ffmpeg,
-        profile: { category: profileCategory, name: profileName },
-        gpu: selectedGPU,
-        startTime: new Date(),
-        outputDir
-    });
-    
-    // Initialize bandwidth monitoring for this stream
-    streamStats.set(channelId, {
-        bandwidth: 0,
-        totalData: 0,
-        lastCheck: Date.now(),
-        lastBytes: 0
-    });
-    
-    // Update channel status
-    let channelIndex = channels.findIndex(c => c.id === channelId);
-    if (channelIndex !== -1) {
-        channels[channelIndex].isActive = true;
-        channels[channelIndex].transcoding = true;
-        channels[channelIndex].profile = `${profileCategory}.${profileName}`;
-        channels[channelIndex].gpu = selectedGPU;
-    }
     
     ffmpeg.stdout.on('data', (data) => {
         console.log(`FFmpeg stdout [${channelId}]:`, data.toString());
@@ -338,8 +227,6 @@ async function startTranscoding(channelId, profileCategory = 'quality', profileN
             io.emit('transcodingProgress', {
                 channelId,
                 status: 'running',
-                profile: `${profileCategory}.${profileName}`,
-                gpu: selectedGPU,
                 output: output
             });
         }
@@ -354,33 +241,52 @@ async function startTranscoding(channelId, profileCategory = 'quality', profileN
         if (channelIndex !== -1) {
             channels[channelIndex].isActive = false;
             channels[channelIndex].transcoding = false;
-            delete channels[channelIndex].profile;
-            delete channels[channelIndex].gpu;
         }
         
         io.emit('streamStopped', { channelId, code });
         io.emit('channelsUpdated', channels);
     });
     
-    // Emit updates
-    io.emit('streamStarted', { 
-        channelId, 
-        profile: `${profileCategory}.${profileName}`, 
-        gpu: selectedGPU 
-    });
-    io.emit('channelsUpdated', channels);
-    
     ffmpeg.on('error', (error) => {
         console.error(`FFmpeg error [${channelId}]:`, error);
         io.emit('transcodingError', { channelId, error: error.message });
     });
     
-    return {
-        success: true,
-        channelId,
-        profile: { category: profileCategory, name: profileName },
+    // Store stream info
+    activeStreams.set(channelId, {
+        process: ffmpeg,
+        profile,
         gpu: selectedGPU,
-        streamUrl: `http://localhost:${config.streaming.port}/stream/${channelId}/playlist.m3u8`
+        startTime: Date.now(),
+        outputPath: path.join(outputDir, 'playlist.m3u8'),
+        lastBandwidthCheck: Date.now(),
+        bytesTransferred: 0
+    });
+    
+    // Initialize bandwidth monitoring
+    streamStats.set(channelId, {
+        bandwidth: 0,
+        totalData: 0,
+        lastCheck: Date.now(),
+        lastBytes: 0
+    });
+    
+    // Update channel status
+    const channelIndex = channels.findIndex(c => c.id === channelId);
+    if (channelIndex !== -1) {
+        channels[channelIndex].isActive = true;
+        channels[channelIndex].transcoding = true;
+        channels[channelIndex].profile = profile;
+    }
+    
+    io.emit('streamStarted', { channelId, profile, gpu: selectedGPU });
+    io.emit('channelsUpdated', channels);
+    
+    return {
+        channelId,
+        streamUrl: `/stream/${channelId}/playlist.m3u8`,
+        profile,
+        gpu: selectedGPU
     };
 }
 
@@ -408,13 +314,11 @@ function stopTranscoding(channelId) {
     return false;
 }
 
-// Monitor bandwidth usage (only for active streams)
+// Monitor bandwidth usage
 function monitorBandwidth() {
-    if (activeStreams.size === 0) return; // Skip if no active streams
-    
     for (const [channelId, stream] of activeStreams) {
         try {
-            const outputDir = stream.outputDir;
+            const outputDir = path.dirname(stream.outputPath);
             const stats = streamStats.get(channelId);
             
             if (stats && fs.existsSync(outputDir)) {
@@ -456,14 +360,12 @@ function monitorBandwidth() {
         }
     }
     
-    // Emit updated channel data only if there are active streams
-    if (activeStreams.size > 0) {
-        io.emit('channelsUpdated', channels);
-    }
+    // Emit updated channel data
+    io.emit('channelsUpdated', channels);
 }
 
-// Start bandwidth monitoring (only when streams are active)
-setInterval(monitorBandwidth, 5000); // Every 5 seconds
+// Start bandwidth monitoring
+setInterval(monitorBandwidth, 2000); // Every 2 seconds
 
 // Routes
 app.get('/', (req, res) => {
@@ -478,10 +380,6 @@ app.get('/api/gpu-info', (req, res) => {
     res.json(gpuInfo);
 });
 
-app.get('/api/profiles', (req, res) => {
-    res.json(ffmpegProfiles);
-});
-
 app.post('/api/refresh-playlist', async (req, res) => {
     try {
         await fetchPlaylist();
@@ -494,9 +392,9 @@ app.post('/api/refresh-playlist', async (req, res) => {
 app.post('/api/start-stream/:channelId', async (req, res) => {
     try {
         const { channelId } = req.params;
-        const { profileCategory = 'quality', profileName = 'hd_720p', gpuType = 'auto' } = req.body;
+        const { profile = 'medium', gpu = 'auto' } = req.body;
         
-        const result = await startTranscoding(parseInt(channelId), profileCategory, profileName, gpuType);
+        const result = await startTranscoding(parseInt(channelId), profile, gpu);
         res.json(result);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -539,7 +437,7 @@ app.post('/api/launch-vlc/:channelId', (req, res) => {
             return res.status(404).json({ error: 'Stream not found or not active' });
         }
         
-        const streamUrl = `http://192.168.1.100:3001/stream/${channelId}/playlist.m3u8`;
+        const streamUrl = `http://localhost:3000/stream/${channelId}/playlist.m3u8`;
         
         // Check if VLC is installed
         exec('which vlc', (error) => {
@@ -600,26 +498,21 @@ io.on('connection', (socket) => {
 // Initialize server
 async function initializeServer() {
     try {
-        // Define port
-        const PORT = process.env.PORT || 3001;
-        
         // Create directories
         await fs.ensureDir(config.streaming.outputDir);
         
         // Detect GPU
         await detectGPU();
         
-        // Start server first
+        // Fetch initial playlist
+        await fetchPlaylist();
+        
+        // Start server
+        const PORT = process.env.PORT || 3000;
         server.listen(PORT, () => {
             console.log(`TVHeadend Streamer running on port ${PORT}`);
             console.log(`Available GPUs:`, gpuInfo);
-            
-            // Fetch initial playlist in background (non-blocking)
-            fetchPlaylist().then(() => {
-                console.log(`Loaded ${channels.length} channels`);
-            }).catch(error => {
-                console.log('Playlist fetch failed (will retry later):', error.message);
-            });
+            console.log(`Loaded ${channels.length} channels`);
         });
         
     } catch (error) {
