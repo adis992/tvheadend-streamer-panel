@@ -142,7 +142,44 @@ async function fetchPlaylist() {
         return channels;
     } catch (error) {
         console.error('Error fetching playlist:', error);
-        throw error;
+        console.log('TVHeadend not available, loading demo channels...');
+        
+        // Demo channels when TVHeadend is not available
+        channels = [
+            {
+                id: 'demo1',
+                name: 'Demo Channel 1 (HD)',
+                url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+                status: 'idle',
+                quality: 'HD'
+            },
+            {
+                id: 'demo2',
+                name: 'Demo Channel 2 (4K)',
+                url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+                status: 'idle',
+                quality: '4K'
+            },
+            {
+                id: 'demo3',
+                name: 'Demo Channel 3 (FullHD)',
+                url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+                status: 'idle',
+                quality: 'FullHD'
+            },
+            {
+                id: 'demo4',
+                name: 'Demo Channel 4 (HD)',
+                url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
+                status: 'idle',
+                quality: 'HD'
+            }
+        ];
+        
+        console.log(`Demo mode: loaded ${channels.length} demo channels`);
+        io.emit('channelsUpdated', channels);
+        
+        return channels;
     }
 }
 
@@ -504,8 +541,12 @@ async function initializeServer() {
         // Detect GPU
         await detectGPU();
         
-        // Fetch initial playlist
-        await fetchPlaylist();
+        // Try to fetch playlist (will fallback to demo if TVHeadend unavailable)
+        try {
+            await fetchPlaylist();
+        } catch (error) {
+            console.log('TVHeadend unavailable, continuing with demo channels');
+        }
         
         // Start server
         const PORT = process.env.PORT || 3000;
@@ -513,6 +554,7 @@ async function initializeServer() {
             console.log(`TVHeadend Streamer running on port ${PORT}`);
             console.log(`Available GPUs:`, gpuInfo);
             console.log(`Loaded ${channels.length} channels`);
+            console.log(`Access the web interface at: http://localhost:${PORT}`);
         });
         
     } catch (error) {
