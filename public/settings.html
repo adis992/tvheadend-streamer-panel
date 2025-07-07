@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TVHeadend Streamer - Settings</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 20px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .sidebar-brand {
+            text-align: center;
+            padding: 0 20px 30px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .sidebar-brand h4 {
+            margin: 0;
+            font-weight: bold;
+        }
+        
+        .nav-item {
+            margin: 5px 15px;
+        }
+        
+        .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            padding: 12px 15px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .nav-link.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+        
+        .nav-link i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+        }
+        
+        /* Main content */
+        .main-content {
+            margin-left: 250px;
+            flex: 1;
+            padding: 20px;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            color: white;
+            text-align: center;
+        }
+        
+        .settings-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .profile-card {
+            border: none;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+        
+        .profile-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .profile-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        
+        .badge-nvidia { background: #76b900; color: white; }
+        .badge-amd { background: #ed1c24; color: white; }
+        .badge-software { background: #6c757d; color: white; }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <h4><i class="fas fa-broadcast-tower"></i> TVH Streamer</h4>
+            <small>GPU Transcoder Panel</small>
+        </div>
+        
+        <nav class="nav flex-column">
+            <div class="nav-item">
+                <a class="nav-link" href="index.html">
+                    <i class="fas fa-home"></i> Home
+                </a>
+            </div>
+            <div class="nav-item">
+                <a class="nav-link active" href="settings.html">
+                    <i class="fas fa-cog"></i> Settings
+                </a>
+            </div>
+            <div class="nav-item">
+                <a class="nav-link" href="installation.html">
+                    <i class="fas fa-download"></i> Installation
+                </a>
+            </div>
+            <div class="nav-item">
+                <a class="nav-link" href="about.html">
+                    <i class="fas fa-info-circle"></i> About
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-cog"></i> Settings</h1>
+            <p class="mb-0">Configure transcoding profiles and system settings</p>
+        </div>
+        
+        <div class="row">
+            <!-- Profile Management -->
+            <div class="col-lg-8">
+                <div class="settings-panel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4><i class="fas fa-layer-group"></i> FFmpeg Profiles</h4>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createProfileModal">
+                            <i class="fas fa-plus"></i> Create Profile
+                        </button>
+                    </div>
+                    
+                    <div id="profiles-list">
+                        <div class="text-center py-5">
+                            <i class="fas fa-spinner fa-spin fa-3x text-primary"></i>
+                            <p class="mt-3">Loading profiles...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- System Settings -->
+            <div class="col-lg-4">
+                <div class="settings-panel">
+                    <h4><i class="fas fa-server"></i> System Settings</h4>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">TVHeadend URL:</label>
+                        <input type="text" id="tvheadend-url" class="form-control" 
+                               value="http://192.168.100.3:9981/playlist">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Stream Output Port:</label>
+                        <input type="number" id="output-port" class="form-control" value="8080">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">HLS Segment Time (seconds):</label>
+                        <input type="number" id="segment-time" class="form-control" value="4">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">HLS Playlist Size:</label>
+                        <input type="number" id="playlist-size" class="form-control" value="6">
+                    </div>
+                    
+                    <button class="btn btn-success w-100" onclick="saveSettings()">
+                        <i class="fas fa-save"></i> Save Settings
+                    </button>
+                </div>
+                
+                <div class="settings-panel">
+                    <h4><i class="fas fa-chart-bar"></i> System Info</h4>
+                    <div id="system-info">
+                        <div class="text-center">
+                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Create Profile Modal -->
+    <div class="modal fade" id="createProfileModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Profile</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="profileForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Profile Name:</label>
+                                    <input type="text" id="profile-name" class="form-control" placeholder="e.g., 1080p_NVENC">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">GPU Type:</label>
+                                    <select id="profile-gpu" class="form-select">
+                                        <option value="nvidia">NVIDIA</option>
+                                        <option value="amd">AMD</option>
+                                        <option value="software">Software</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Width:</label>
+                                    <input type="number" id="profile-width" class="form-control" value="1920">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Height:</label>
+                                    <input type="number" id="profile-height" class="form-control" value="1080">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Bitrate:</label>
+                                    <input type="text" id="profile-bitrate" class="form-control" value="3000k" placeholder="e.g., 3000k">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Video Codec:</label>
+                            <input type="text" id="profile-codec" class="form-control" value="h264_nvenc" placeholder="e.g., h264_nvenc">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Preset:</label>
+                            <input type="text" id="profile-preset" class="form-control" value="fast" placeholder="e.g., fast, medium, slow">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Custom FFmpeg Args (optional):</label>
+                            <textarea id="profile-args" class="form-control" rows="3" placeholder="-b:v 3000k -maxrate 3500k -bufsize 6000k"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="createProfile()">Create Profile</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Socket.IO -->
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <script>
+        // Initialize Socket.IO
+        const socket = io();
+        
+        // Global variables
+        let profiles = [];
+        let systemInfo = {};
+        
+        // DOM elements
+        const profilesList = document.getElementById('profiles-list');
+        const systemInfoDiv = document.getElementById('system-info');
+        
+        // Socket event listeners
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            loadProfiles();
+            loadSystemInfo();
+        });
+        
+        socket.on('profilesUpdated', (profilesData) => {
+            profiles = profilesData;
+            renderProfiles();
+        });
+        
+        // Functions
+        async function loadProfiles() {
+            try {
+                const response = await fetch('/api/profiles');
+                profiles = await response.json();
+                renderProfiles();
+            } catch (error) {
+                console.error('Error loading profiles:', error);
+                showNotification('Error loading profiles', 'error');
+            }
+        }
+        
+        async function loadSystemInfo() {
+            try {
+                const response = await fetch('/api/system-info');
+                systemInfo = await response.json();
+                renderSystemInfo();
+            } catch (error) {
+                console.error('Error loading system info:', error);
+            }
+        }
+        
+        function renderProfiles() {
+            if (profiles.length === 0) {
+                profilesList.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="fas fa-layer-group fa-3x text-muted"></i>
+                        <p class="mt-3">No profiles configured</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createProfileModal">
+                            <i class="fas fa-plus"></i> Create First Profile
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            const html = profiles.map(profile => {
+                const gpuBadge = profile.gpu === 'nvidia' ? 'badge-nvidia' : 
+                               profile.gpu === 'amd' ? 'badge-amd' : 'badge-software';
+                
+                return `
+                    <div class="card profile-card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title mb-1">${profile.name}</h6>
+                                    <div class="d-flex gap-2 mb-2">
+                                        <span class="profile-badge ${gpuBadge}">${profile.gpu.toUpperCase()}</span>
+                                        <span class="badge bg-secondary">${profile.width}x${profile.height}</span>
+                                        <span class="badge bg-info">${profile.bitrate}</span>
+                                    </div>
+                                    <small class="text-muted">
+                                        Codec: ${profile.codec} | Preset: ${profile.preset}
+                                    </small>
+                                </div>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-primary me-2" onclick="editProfile('${profile.name}')">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteProfile('${profile.name}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            profilesList.innerHTML = html;
+        }
+        
+        function renderSystemInfo() {
+            const html = `
+                <div class="mb-3">
+                    <strong>CPU:</strong><br>
+                    <small class="text-muted">${systemInfo.cpu || 'N/A'}</small>
+                </div>
+                <div class="mb-3">
+                    <strong>Memory:</strong><br>
+                    <small class="text-muted">${systemInfo.memory || 'N/A'}</small>
+                </div>
+                <div class="mb-3">
+                    <strong>GPU:</strong><br>
+                    <small class="text-muted">${systemInfo.gpu || 'N/A'}</small>
+                </div>
+                <div class="mb-3">
+                    <strong>FFmpeg Version:</strong><br>
+                    <small class="text-muted">${systemInfo.ffmpeg || 'N/A'}</small>
+                </div>
+            `;
+            
+            systemInfoDiv.innerHTML = html;
+        }
+        
+        async function createProfile() {
+            const profileData = {
+                name: document.getElementById('profile-name').value,
+                gpu: document.getElementById('profile-gpu').value,
+                width: parseInt(document.getElementById('profile-width').value),
+                height: parseInt(document.getElementById('profile-height').value),
+                bitrate: document.getElementById('profile-bitrate').value,
+                codec: document.getElementById('profile-codec').value,
+                preset: document.getElementById('profile-preset').value,
+                customArgs: document.getElementById('profile-args').value
+            };
+            
+            if (!profileData.name) {
+                showNotification('Profile name is required', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/profiles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(profileData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification(`Profile "${profileData.name}" created successfully`, 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('createProfileModal')).hide();
+                    document.getElementById('profileForm').reset();
+                    loadProfiles();
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                showNotification(`Error creating profile: ${error.message}`, 'error');
+            }
+        }
+        
+        async function deleteProfile(profileName) {
+            if (!confirm(`Are you sure you want to delete profile "${profileName}"?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/profiles/${profileName}`, { method: 'DELETE' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification(`Profile "${profileName}" deleted successfully`, 'success');
+                    loadProfiles();
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                showNotification(`Error deleting profile: ${error.message}`, 'error');
+            }
+        }
+        
+        async function saveSettings() {
+            const settings = {
+                tvheadendUrl: document.getElementById('tvheadend-url').value,
+                outputPort: parseInt(document.getElementById('output-port').value),
+                segmentTime: parseInt(document.getElementById('segment-time').value),
+                playlistSize: parseInt(document.getElementById('playlist-size').value)
+            };
+            
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification('Settings saved successfully', 'success');
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                showNotification(`Error saving settings: ${error.message}`, 'error');
+            }
+        }
+        
+        function showNotification(message, type) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show`;
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.zIndex = '9999';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+        
+        // Initialize
+        loadProfiles();
+        loadSystemInfo();
+    </script>
+</body>
+</html>

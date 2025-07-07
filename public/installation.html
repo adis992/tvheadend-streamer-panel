@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TVHeadend Streamer - Installation</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 20px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .sidebar-brand {
+            text-align: center;
+            padding: 0 20px 30px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .sidebar-brand h4 {
+            margin: 0;
+            font-weight: bold;
+        }
+        
+        .nav-item {
+            margin: 5px 15px;
+        }
+        
+        .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            padding: 12px 15px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .nav-link.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+        
+        .nav-link i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+        }
+        
+        /* Main content */
+        .main-content {
+            margin-left: 250px;
+            flex: 1;
+            padding: 20px;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            color: white;
+            text-align: center;
+        }
+        
+        .installation-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .install-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .install-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .install-available {
+            border-color: #28a745;
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        }
+        
+        .install-missing {
+            border-color: #dc3545;
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+        }
+        
+        .install-installing {
+            border-color: #ffc107;
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        }
+        
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .status-available { background: #28a745; color: white; }
+        .status-missing { background: #dc3545; color: white; }
+        .status-installing { background: #ffc107; color: #333; }
+        
+        .progress-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 350px;
+            z-index: 1000;
+        }
+        
+        .progress-item {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <h4><i class="fas fa-broadcast-tower"></i> TVH Streamer</h4>
+            <small>GPU Transcoder Panel</small>
+        </div>
+        
+        <nav class="nav flex-column">
+            <div class="nav-item">
+                <a class="nav-link" href="index.html">
+                    <i class="fas fa-home"></i> Home
+                </a>
+            </div>
+            <div class="nav-item">
+                <a class="nav-link" href="settings.html">
+                    <i class="fas fa-cog"></i> Settings
+                </a>
+            </div>
+            <div class="nav-item">
+                <a class="nav-link active" href="installation.html">
+                    <i class="fas fa-download"></i> Installation
+                </a>
+            </div>
+            <div class="nav-item">
+                <a class="nav-link" href="about.html">
+                    <i class="fas fa-info-circle"></i> About
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-download"></i> Installation Manager</h1>
+            <p class="mb-0">Install and manage system components for GPU transcoding</p>
+        </div>
+        
+        <div class="row">
+            <!-- Auto Installation -->
+            <div class="col-lg-8">
+                <div class="installation-panel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4><i class="fas fa-magic"></i> Quick Installation</h4>
+                        <button class="btn btn-success" onclick="runAutoInstall()">
+                            <i class="fas fa-play"></i> Run Auto Install
+                        </button>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Auto Installation:</strong> This will automatically detect your system and install required components including GPU drivers, FFmpeg with hardware acceleration, and dependencies.
+                    </div>
+                    
+                    <div id="components-list">
+                        <div class="text-center py-5">
+                            <i class="fas fa-spinner fa-spin fa-3x text-primary"></i>
+                            <p class="mt-3">Checking system components...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Manual Installation -->
+            <div class="col-lg-4">
+                <div class="installation-panel">
+                    <h4><i class="fas fa-tools"></i> Manual Commands</h4>
+                    
+                    <div class="mb-3">
+                        <h6>Ubuntu/Debian:</h6>
+                        <code>
+                            sudo apt update<br>
+                            sudo apt install nodejs npm ffmpeg vlc
+                        </code>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6>NVIDIA Drivers:</h6>
+                        <code>
+                            sudo apt install nvidia-driver-525<br>
+                            sudo apt install nvidia-cuda-toolkit
+                        </code>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6>AMD Drivers:</h6>
+                        <code>
+                            sudo apt install mesa-vulkan-drivers<br>
+                            sudo apt install radeontop
+                        </code>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6>FFmpeg with GPU:</h6>
+                        <code>
+                            sudo apt install ffmpeg<br>
+                            ffmpeg -hwaccels
+                        </code>
+                    </div>
+                </div>
+                
+                <div class="installation-panel">
+                    <h4><i class="fas fa-terminal"></i> System Detection</h4>
+                    <div id="system-detection">
+                        <div class="text-center">
+                            <i class="fas fa-spinner fa-spin"></i> Detecting...
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-primary w-100 mt-3" onclick="detectSystem()">
+                        <i class="fas fa-search"></i> Re-detect System
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Progress notifications -->
+    <div id="progress-container" class="progress-container"></div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Socket.IO -->
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <script>
+        // Initialize Socket.IO
+        const socket = io();
+        
+        // Global variables
+        let systemInfo = {};
+        let components = [];
+        
+        // DOM elements
+        const componentsList = document.getElementById('components-list');
+        const systemDetection = document.getElementById('system-detection');
+        const progressContainer = document.getElementById('progress-container');
+        
+        // Socket event listeners
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            detectSystem();
+            checkComponents();
+        });
+        
+        socket.on('installProgress', (data) => {
+            updateInstallProgress(data);
+        });
+        
+        socket.on('installComplete', (data) => {
+            showNotification(`${data.component} installation completed`, 'success');
+            checkComponents();
+        });
+        
+        socket.on('installError', (data) => {
+            showNotification(`Installation error: ${data.error}`, 'error');
+        });
+        
+        // Functions
+        async function detectSystem() {
+            try {
+                const response = await fetch('/api/detect-system');
+                systemInfo = await response.json();
+                renderSystemDetection();
+            } catch (error) {
+                console.error('Error detecting system:', error);
+                showNotification('Error detecting system', 'error');
+            }
+        }
+        
+        async function checkComponents() {
+            try {
+                const response = await fetch('/api/check-components');
+                components = await response.json();
+                renderComponents();
+            } catch (error) {
+                console.error('Error checking components:', error);
+                showNotification('Error checking components', 'error');
+            }
+        }
+        
+        function renderSystemDetection() {
+            const html = `
+                <div class="mb-2">
+                    <strong>OS:</strong> ${systemInfo.os || 'Unknown'}
+                </div>
+                <div class="mb-2">
+                    <strong>CPU:</strong> ${systemInfo.cpu || 'Unknown'}
+                </div>
+                <div class="mb-2">
+                    <strong>GPU:</strong> ${systemInfo.gpu || 'None detected'}
+                </div>
+                <div class="mb-2">
+                    <strong>Memory:</strong> ${systemInfo.memory || 'Unknown'}
+                </div>
+            `;
+            
+            systemDetection.innerHTML = html;
+        }
+        
+        function renderComponents() {
+            if (!components || components.length === 0) {
+                componentsList.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="fas fa-exclamation-triangle fa-3x text-warning"></i>
+                        <p class="mt-3">No component information available</p>
+                        <button class="btn btn-primary" onclick="checkComponents()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            const html = components.map(component => {
+                const statusClass = component.status === 'available' ? 'install-available' : 
+                                  component.status === 'installing' ? 'install-installing' : 'install-missing';
+                
+                const statusBadge = component.status === 'available' ? 'status-available' : 
+                                  component.status === 'installing' ? 'status-installing' : 'status-missing';
+                
+                const actionButton = component.status === 'available' ? 
+                    `<span class="text-success"><i class="fas fa-check"></i> Installed</span>` :
+                    component.status === 'installing' ?
+                    `<span class="text-warning"><i class="fas fa-spinner fa-spin"></i> Installing...</span>` :
+                    `<button class="btn btn-primary btn-sm" onclick="installComponent('${component.name}')">
+                        <i class="fas fa-download"></i> Install
+                    </button>`;
+                
+                return `
+                    <div class="install-item ${statusClass}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">${component.displayName}</h6>
+                                <p class="mb-2 text-muted">${component.description}</p>
+                                <span class="status-badge ${statusBadge}">
+                                    ${component.status.toUpperCase()}
+                                </span>
+                            </div>
+                            <div>
+                                ${actionButton}
+                            </div>
+                        </div>
+                        ${component.version ? `<small class="text-muted mt-2 d-block">Version: ${component.version}</small>` : ''}
+                    </div>
+                `;
+            }).join('');
+            
+            componentsList.innerHTML = html;
+        }
+        
+        async function runAutoInstall() {
+            if (!confirm('This will install all missing components. Continue?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/auto-install', { method: 'POST' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification('Auto installation started', 'success');
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                showNotification(`Error starting auto install: ${error.message}`, 'error');
+            }
+        }
+        
+        async function installComponent(componentName) {
+            if (!confirm(`Install ${componentName}?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/install/${componentName}`, { method: 'POST' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification(`${componentName} installation started`, 'success');
+                    checkComponents(); // Refresh to show installing status
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                showNotification(`Error installing ${componentName}: ${error.message}`, 'error');
+            }
+        }
+        
+        function updateInstallProgress(data) {
+            const existingProgress = document.getElementById(`progress-${data.component}`);
+            
+            if (existingProgress) {
+                existingProgress.querySelector('.progress-text').textContent = data.message;
+                const progressBar = existingProgress.querySelector('.progress-bar');
+                if (progressBar) {
+                    progressBar.style.width = `${data.progress || 0}%`;
+                }
+            } else {
+                const progressItem = document.createElement('div');
+                progressItem.id = `progress-${data.component}`;
+                progressItem.className = 'progress-item';
+                progressItem.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong>${data.component}</strong>
+                        <button type="button" class="btn-close btn-sm" onclick="this.parentElement.parentElement.parentElement.remove()"></button>
+                    </div>
+                    <div class="progress-text">${data.message}</div>
+                    ${data.progress !== undefined ? `
+                        <div class="progress mt-2">
+                            <div class="progress-bar" style="width: ${data.progress}%"></div>
+                        </div>
+                    ` : ''}
+                `;
+                
+                progressContainer.appendChild(progressItem);
+            }
+        }
+        
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `progress-item alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'}`;
+            notification.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>${message}</span>
+                    <button type="button" class="btn-close" onclick="this.parentElement.parentElement.remove()"></button>
+                </div>
+            `;
+            
+            progressContainer.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+        
+        // Initialize
+        detectSystem();
+        checkComponents();
+    </script>
+</body>
+</html>

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TVHeadend Streamer - About</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 20px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .sidebar-brand {
+            text-align: center;
+            padding: 0 20px 30px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .sidebar-brand h4 {
+            margin: 0;
+            font-weight: bold;
+        }
+        
+        .nav-item {
+            margin: 5px 15px;
+        }
+        
+        .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            padding: 12px 15px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .nav-link.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+        
+        .nav-link i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+        }
+        
+        /* Main content */
+        .main-content {
+            margin-left: 250px;
+            flex: 1;
+            padding: 20px;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            color: white;
+            text-align: center;
+        }
+        
+        .about-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .feature-card {
+            border: none;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .tech-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            margin: 3px;
+        }
+        
+        .version-info {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <h4><i class="fas fa-broadcast-tower"></i> TVH Streamer</h4>
+            <small>GPU Transcoder Panel</small>
+        </div>
+        
+        <nav class="nav flex-column">
+            <div class="nav-item">
+                <a class="nav-link" href="index.html">
+                    <i class="fas fa-home"></i> Home
+                </a>
+            </div>
+            <div class="nav-item">
+                <a class="nav-link" href="settings.html">
+                    <i class="fas fa-cog"></i> Settings
+                </a>
+            </div>
+            <div class="nav-item">
+                <a class="nav-link" href="installation.html">
+                    <i class="fas fa-download"></i> Installation
+                </a>
+            </div>
+            <div class="nav-item">
+                <a class="nav-link active" href="about.html">
+                    <i class="fas fa-info-circle"></i> About
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-info-circle"></i> About TVHeadend Streamer</h1>
+            <p class="mb-0">Advanced GPU-accelerated transcoding platform</p>
+        </div>
+        
+        <div class="row">
+            <!-- Project Info -->
+            <div class="col-lg-8">
+                <div class="about-panel">
+                    <div class="version-info">
+                        <h4><i class="fas fa-code-branch"></i> Version 2.0.0</h4>
+                        <p class="mb-0">Advanced TVHeadend Streaming Panel with GPU Transcoding</p>
+                    </div>
+                    
+                    <h4><i class="fas fa-star"></i> Features</h4>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card feature-card">
+                                <div class="card-body">
+                                    <h6><i class="fas fa-microchip text-success"></i> GPU Acceleration</h6>
+                                    <small class="text-muted">Hardware transcoding with NVIDIA NVENC, AMD VCE, and Intel QuickSync</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card feature-card">
+                                <div class="card-body">
+                                    <h6><i class="fas fa-layer-group text-primary"></i> Multiple Profiles</h6>
+                                    <small class="text-muted">25+ predefined transcoding profiles with custom profile support</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card feature-card">
+                                <div class="card-body">
+                                    <h6><i class="fas fa-stream text-info"></i> UDP Streaming</h6>
+                                    <small class="text-muted">Real-time UDP multicast streaming with bandwidth monitoring</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card feature-card">
+                                <div class="card-body">
+                                    <h6><i class="fas fa-chart-line text-warning"></i> Real-time Monitoring</h6>
+                                    <small class="text-muted">Live CPU, RAM, GPU usage and bandwidth statistics</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card feature-card">
+                                <div class="card-body">
+                                    <h6><i class="fas fa-download text-success"></i> Auto Installation</h6>
+                                    <small class="text-muted">Automatic detection and installation of GPU drivers and dependencies</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card feature-card">
+                                <div class="card-body">
+                                    <h6><i class="fas fa-play-circle text-danger"></i> Demo Mode</h6>
+                                    <small class="text-muted">Works without TVHeadend server using demo channels</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h4 class="mt-4"><i class="fas fa-tools"></i> Technologies Used</h4>
+                    <div class="mb-3">
+                        <div class="tech-badge">Node.js</div>
+                        <div class="tech-badge">Express.js</div>
+                        <div class="tech-badge">Socket.IO</div>
+                        <div class="tech-badge">FFmpeg</div>
+                        <div class="tech-badge">Bootstrap 5</div>
+                        <div class="tech-badge">WebSockets</div>
+                        <div class="tech-badge">NVIDIA NVENC</div>
+                        <div class="tech-badge">AMD VCE</div>
+                        <div class="tech-badge">Intel QuickSync</div>
+                        <div class="tech-badge">HLS Streaming</div>
+                        <div class="tech-badge">UDP Multicast</div>
+                    </div>
+                    
+                    <h4><i class="fas fa-book"></i> Documentation</h4>
+                    <p>This application provides a comprehensive web interface for managing TVHeadend streaming with advanced GPU-accelerated transcoding capabilities. It features individual channel controls, profile management, real-time monitoring, and automatic system component installation.</p>
+                    
+                    <h4><i class="fas fa-rocket"></i> Quick Start</h4>
+                    <div class="bg-light p-3 rounded">
+                        <code>
+                            git clone https://github.com/adis992/tvheadend-streamer-panel.git<br>
+                            cd tvheadend-streamer-panel<br>
+                            chmod +x install.sh<br>
+                            ./install.sh<br>
+                            npm start
+                        </code>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- System Info & Links -->
+            <div class="col-lg-4">
+                <div class="about-panel">
+                    <h4><i class="fas fa-link"></i> Links</h4>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="https://github.com/adis992/tvheadend-streamer-panel" target="_blank" class="btn btn-dark">
+                            <i class="fab fa-github"></i> GitHub Repository
+                        </a>
+                        <a href="https://github.com/adis992/tvheadend-streamer-panel/issues" target="_blank" class="btn btn-warning">
+                            <i class="fas fa-bug"></i> Report Issues
+                        </a>
+                        <a href="https://github.com/adis992/tvheadend-streamer-panel/wiki" target="_blank" class="btn btn-info">
+                            <i class="fas fa-book"></i> Documentation
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="about-panel">
+                    <h4><i class="fas fa-server"></i> System Information</h4>
+                    <div id="system-info">
+                        <div class="text-center">
+                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="about-panel">
+                    <h4><i class="fas fa-chart-pie"></i> Statistics</h4>
+                    <div id="stats-info">
+                        <div class="text-center">
+                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="about-panel">
+                    <h4><i class="fas fa-license"></i> License</h4>
+                    <p class="small text-muted">
+                        This project is open source and available under the MIT License. 
+                        Feel free to contribute, fork, or use in your own projects.
+                    </p>
+                    
+                    <h6><i class="fas fa-heart text-danger"></i> Credits</h6>
+                    <p class="small text-muted">
+                        Built with ❤️ using modern web technologies and GPU acceleration frameworks.
+                        Special thanks to the FFmpeg and TVHeadend communities.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Socket.IO -->
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <script>
+        // Initialize Socket.IO
+        const socket = io();
+        
+        // DOM elements
+        const systemInfoDiv = document.getElementById('system-info');
+        const statsInfoDiv = document.getElementById('stats-info');
+        
+        // Socket event listeners
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            loadSystemInfo();
+            loadStats();
+        });
+        
+        // Functions
+        async function loadSystemInfo() {
+            try {
+                const response = await fetch('/api/system-info');
+                const systemInfo = await response.json();
+                renderSystemInfo(systemInfo);
+            } catch (error) {
+                console.error('Error loading system info:', error);
+                systemInfoDiv.innerHTML = '<div class="text-danger">Error loading system info</div>';
+            }
+        }
+        
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/channels');
+                const channels = await response.json();
+                
+                const profilesResponse = await fetch('/api/profiles');
+                const profiles = await profilesResponse.json();
+                
+                renderStats(channels, profiles);
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                statsInfoDiv.innerHTML = '<div class="text-danger">Error loading statistics</div>';
+            }
+        }
+        
+        function renderSystemInfo(info) {
+            const html = `
+                <div class="mb-3">
+                    <strong>Platform:</strong><br>
+                    <small class="text-muted">${info.platform || 'Unknown'}</small>
+                </div>
+                <div class="mb-3">
+                    <strong>Node.js:</strong><br>
+                    <small class="text-muted">${info.nodeVersion || 'Unknown'}</small>
+                </div>
+                <div class="mb-3">
+                    <strong>CPU:</strong><br>
+                    <small class="text-muted">${info.cpu || 'Unknown'}</small>
+                </div>
+                <div class="mb-3">
+                    <strong>Memory:</strong><br>
+                    <small class="text-muted">${info.memory || 'Unknown'}</small>
+                </div>
+                <div class="mb-3">
+                    <strong>GPU:</strong><br>
+                    <small class="text-muted">${info.gpu || 'None detected'}</small>
+                </div>
+                <div class="mb-3">
+                    <strong>FFmpeg:</strong><br>
+                    <small class="text-muted">${info.ffmpeg || 'Not installed'}</small>
+                </div>
+            `;
+            
+            systemInfoDiv.innerHTML = html;
+        }
+        
+        function renderStats(channels, profiles) {
+            const activeChannels = channels.filter(c => c.status === 'streaming' || c.status === 'transcoding').length;
+            
+            const html = `
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <h4 class="text-primary">${channels.length}</h4>
+                            <small class="text-muted">Total Channels</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <h4 class="text-success">${activeChannels}</h4>
+                            <small class="text-muted">Active Streams</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <h4 class="text-info">${profiles.length}</h4>
+                            <small class="text-muted">Profiles</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <h4 class="text-warning">24/7</h4>
+                            <small class="text-muted">Uptime Ready</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            statsInfoDiv.innerHTML = html;
+        }
+        
+        // Initialize
+        loadSystemInfo();
+        loadStats();
+    </script>
+</body>
+</html>
