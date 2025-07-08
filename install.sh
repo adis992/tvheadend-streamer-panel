@@ -187,21 +187,48 @@ install_amd_support() {
     if lspci | grep -i amd | grep -i vga &> /dev/null || lspci | grep -i radeon &> /dev/null; then
         log "AMD GPU detected. Installing AMD GPU support..."
         
+        # Detect GPU generation for proper driver selection
+        local gpu_info=$(lspci | grep -i -E "(amd|radeon)" | grep -i vga)
+        log "Detected GPU: $gpu_info"
+        
         if [[ "$OS" =~ "Ubuntu" ]] || [[ "$OS" =~ "Debian" ]]; then
-            # Install Mesa drivers and VAAPI support
+            # Install basic Mesa drivers and VAAPI support (works for all AMD GPUs)
             sudo apt install -y \
                 mesa-va-drivers \
                 mesa-vdpau-drivers \
                 libva-dev \
                 vainfo \
-                radeontop
+                radeontop \
+                mesa-opencl-icd \
+                clinfo
                 
-            # Try to install ROCm (AMD's compute platform)
-            if [[ "$VER" == "20.04" ]] || [[ "$VER" == "22.04" ]]; then
-                wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | sudo apt-key add -
-                echo "deb [arch=amd64] https://repo.radeon.com/rocm/apt/debian/ ubuntu main" | sudo tee /etc/apt/sources.list.d/rocm.list
-                sudo apt update
-                sudo apt install -y rocm-dev rocm-libs
+            # Check if this is a newer GPU that supports ROCm
+            if echo "$gpu_info" | grep -i -E "(vega|navi|rdna|rx 6|rx 7)" &> /dev/null; then
+                log "Modern AMD GPU detected, installing ROCm support..."
+                if [[ "$VER" == "20.04" ]] || [[ "$VER" == "22.04" ]]; then
+                    # Use new ROCm repository
+                    curl -fsSL https://repo.radeon.com/rocm/rocm.gpg.key | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/rocm.gpg
+                    echo "deb [arch=amd64] https://repo.radeon.com/rocm/apt/$VER jammy main" | sudo tee /etc/apt/sources.list.d/rocm.list
+                    sudo apt update
+                    sudo apt install -y rocm-dev rocm-libs hip-runtime-amd || {
+                        warn "ROCm installation failed, continuing with Mesa drivers only"
+                    }
+                fi
+            else
+                log "Older AMD GPU (GCN/Polaris like RX580) detected - ROCm not supported"
+                log "Using Mesa drivers with OpenCL support for basic acceleration"
+                
+                # For older GPUs like RX580, install additional OpenCL support
+                sudo apt install -y \
+                    mesa-opencl-icd \
+                    opencl-headers \
+                    clinfo \
+                    mesa-vulkan-drivers
+                    
+                log "Testing OpenCL support..."
+                if command -v clinfo &> /dev/null; then
+                    clinfo | head -10 || warn "OpenCL may not be working properly"
+                fi
             fi
             
         elif [[ "$OS" =~ "CentOS" ]] || [[ "$OS" =~ "Red Hat" ]] || [[ "$OS" =~ "Fedora" ]]; then
@@ -210,7 +237,9 @@ install_amd_support() {
                     mesa-va-drivers \
                     mesa-vdpau-drivers \
                     libva-devel \
-                    radeontop
+                    radeontop \
+                    mesa-opencl \
+                    clinfo
             else
                 sudo yum install -y \
                     mesa-libGL \
@@ -220,6 +249,8 @@ install_amd_support() {
         fi
         
         log "AMD GPU support installed"
+        log "Note: RX580 and similar older AMD GPUs use Mesa drivers (no ROCm)"
+        log "FFmpeg will use software encoding or basic OpenCL acceleration"
     else
         log "No AMD GPU detected, skipping AMD support installation"
     fi

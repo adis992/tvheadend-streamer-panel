@@ -62,14 +62,30 @@ async function detectGPU() {
             });
         });
         
-        // Check for AMD GPU
+        // Check for AMD GPU with better detection for older cards like RX580
         const amdCheck = await new Promise((resolve) => {
+            // First try rocm-smi (for newer AMD GPUs)
             exec('rocm-smi', (error) => {
                 if (error) {
-                    exec('radeontop -d -', (error) => {
-                        resolve(!error);
+                    // Try radeontop (works for older AMD GPUs like RX580)
+                    exec('radeontop -d - -l 1', { timeout: 3000 }, (error) => {
+                        if (error) {
+                            // Try lspci to detect AMD/Radeon GPU
+                            exec('lspci | grep -i -E "(amd|radeon)" | grep -i vga', (error, stdout) => {
+                                if (!error && stdout.trim()) {
+                                    console.log('AMD GPU detected via lspci:', stdout.trim());
+                                    resolve(true);
+                                } else {
+                                    resolve(false);
+                                }
+                            });
+                        } else {
+                            console.log('AMD GPU detected via radeontop');
+                            resolve(true);
+                        }
                     });
                 } else {
+                    console.log('AMD GPU detected via rocm-smi');
                     resolve(true);
                 }
             });
@@ -337,10 +353,17 @@ function getFFmpegEncoder(gpu) {
             extraArgs: ['-gpu', '0']
         };
     } else if (gpu === 'amd' && gpuInfo.amd) {
+        // For older AMD GPUs like RX580, h264_amf may not be available
+        // Try h264_amf first, but fallback to optimized x264 with OpenCL
         return {
             video: 'h264_amf',
             preset: 'speed',
-            extraArgs: ['-usage', 'transcoding']
+            extraArgs: ['-usage', 'transcoding'],
+            fallback: {
+                video: 'libx264',
+                preset: 'fast',
+                extraArgs: ['-x264-params', 'opencl=true']
+            }
         };
     } else {
         return {
@@ -374,8 +397,8 @@ async function startTranscoding(channelId, profile = 'medium', gpu = 'auto') {
     const outputDir = path.join(config.streaming.outputDir, channelId.toString());
     await fs.ensureDir(outputDir);
     
-    // FFmpeg command
-    const ffmpegArgs = [
+    // Build FFmpeg command
+    let ffmpegArgs = [
         '-i', channel.url,
         '-c:v', encoder.video,
         '-preset', encoder.preset,
@@ -393,15 +416,49 @@ async function startTranscoding(channelId, profile = 'medium', gpu = 'auto') {
     ];
     
     console.log('Starting FFmpeg with args:', ffmpegArgs);
+    console.log(`Using encoder: ${encoder.video} (GPU: ${selectedGPU})`);
     
-    const ffmpeg = spawn('ffmpeg', ffmpegArgs);
+    let ffmpeg = spawn('ffmpeg', ffmpegArgs);
+    let usingFallback = false;
     
-    ffmpeg.stdout.on('data', (data) => {
-        console.log(`FFmpeg stdout [${channelId}]:`, data.toString());
-    });
-    
+    // Handle encoder fallback for older AMD GPUs
     ffmpeg.stderr.on('data', (data) => {
         const output = data.toString();
+        
+        // Check for h264_amf not available error (common on RX580)
+        if (output.includes('h264_amf') && output.includes('not found') && encoder.fallback && !usingFallback) {
+            console.warn('h264_amf encoder not available, falling back to software encoding with OpenCL optimization');
+            
+            // Kill current process
+            ffmpeg.kill('SIGTERM');
+            usingFallback = true;
+            
+            // Rebuild command with fallback encoder
+            ffmpegArgs = [
+                '-i', channel.url,
+                '-c:v', encoder.fallback.video,
+                '-preset', encoder.fallback.preset,
+                ...encoder.fallback.extraArgs,
+                '-s', `${profileConfig.width}x${profileConfig.height}`,
+                '-b:v', profileConfig.bitrate,
+                '-c:a', 'aac',
+                '-b:a', '128k',
+                '-f', 'hls',
+                '-hls_time', config.streaming.hlsSegmentTime,
+                '-hls_list_size', config.streaming.hlsListSize,
+                '-hls_flags', 'delete_segments',
+                '-hls_segment_filename', path.join(outputDir, 'segment_%03d.ts'),
+                path.join(outputDir, 'playlist.m3u8')
+            ];
+            
+            console.log('Restarting with fallback encoder:', ffmpegArgs);
+            ffmpeg = spawn('ffmpeg', ffmpegArgs);
+            
+            // Re-attach event listeners for new process
+            attachFFmpegListeners();
+            return;
+        }
+        
         console.log(`FFmpeg stderr [${channelId}]:`, output);
         
         // Emit progress updates
@@ -409,29 +466,56 @@ async function startTranscoding(channelId, profile = 'medium', gpu = 'auto') {
             io.emit('transcodingProgress', {
                 channelId,
                 status: 'running',
-                output: output
+                output: output,
+                encoder: usingFallback ? encoder.fallback.video : encoder.video
             });
         }
     });
     
-    ffmpeg.on('close', (code) => {
-        console.log(`FFmpeg process [${channelId}] exited with code ${code}`);
-        activeStreams.delete(channelId);
+    function attachFFmpegListeners() {
+        ffmpeg.stdout.on('data', (data) => {
+            console.log(`FFmpeg stdout [${channelId}]:`, data.toString());
+        });
         
-        // Update channel status
-        const channelIndex = channels.findIndex(c => c.id === channelId);
-        if (channelIndex !== -1) {
-            channels[channelIndex].isActive = false;
-            channels[channelIndex].transcoding = false;
-        }
+        ffmpeg.stderr.on('data', (data) => {
+            const output = data.toString();
+            console.log(`FFmpeg stderr [${channelId}]:`, output);
+            
+            // Emit progress updates
+            if (output.includes('frame=')) {
+                io.emit('transcodingProgress', {
+                    channelId,
+                    status: 'running',
+                    output: output,
+                    encoder: usingFallback ? encoder.fallback.video : encoder.video
+                });
+            }
+        });
         
-        io.emit('streamStopped', { channelId, code });
-        io.emit('channelsUpdated', channels);
-    });
+        ffmpeg.on('close', (code) => {
+            console.log(`FFmpeg process [${channelId}] exited with code ${code}`);
+            activeStreams.delete(channelId);
+            
+            // Update channel status
+            const channelIndex = channels.findIndex(c => c.id === channelId);
+            if (channelIndex !== -1) {
+                channels[channelIndex].isActive = false;
+                channels[channelIndex].transcoding = false;
+            }
+            
+            io.emit('streamStopped', { channelId, code });
+            io.emit('channelsUpdated', channels);
+        });
+        
+        ffmpeg.on('error', (error) => {
+            console.error(`FFmpeg error [${channelId}]:`, error);
+            io.emit('transcodingError', { channelId, error: error.message });
+        });
+    }
     
-    ffmpeg.on('error', (error) => {
-        console.error(`FFmpeg error [${channelId}]:`, error);
-        io.emit('transcodingError', { channelId, error: error.message });
+    // Attach initial listeners
+    ffmpeg.stdout.on('data', (data) => {
+        console.log(`FFmpeg stdout [${channelId}]:`, data.toString());
     });
     
     // Store stream info
