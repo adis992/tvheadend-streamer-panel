@@ -29,7 +29,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Global variables
 let channels = [];
 let activeStreams = new Map();
-let strea// Socket.IO events
+let streamStats = new Map();
+
+// Socket.IO events
 io.on('connection', (socket) => {
     console.log('Client connected');
     
@@ -224,7 +226,7 @@ async function checkSystemComponents() {
     
     // Check AMD
     if (gpuInfo.amd) {
-        const amdCheck = await checkCommand('radeontop -v');
+        const amdCheck = await checkAMDDrivers();
         components.push({
             name: 'amd-drivers',
             displayName: 'AMD Drivers',
@@ -254,6 +256,34 @@ async function checkCommand(command) {
     });
 }
 
+async function checkAMDDrivers() {
+    return new Promise((resolve) => {
+        // Check if amdgpu kernel module is loaded
+        exec('lsmod | grep amdgpu', (error, stdout) => {
+            if (error || !stdout.trim()) {
+                resolve({ available: false, version: null });
+                return;
+            }
+            
+            // If amdgpu module is loaded, check Mesa version
+            exec('glxinfo | grep "OpenGL version"', (error, glxOutput) => {
+                let version = 'Unknown';
+                if (!error && glxOutput) {
+                    const mesaMatch = glxOutput.match(/Mesa\s+(\d+\.[\d\.]+)/);
+                    if (mesaMatch) {
+                        version = mesaMatch[1];
+                    }
+                }
+                
+                resolve({ 
+                    available: true, 
+                    version: version
+                });
+            });
+        });
+    });
+}
+
 async function installComponent(component) {
     // This would trigger individual component installation
     // For now, we'll just trigger auto install
@@ -276,7 +306,9 @@ async function installComponent(component) {
         console.error(`Error installing ${component}:`, error);
         return false;
     }
-}Map(); // Bandwidth monitoring
+}
+
+// Bandwidth monitoring
 let gpuInfo = { nvidia: false, amd: false };
 let tvheadendStatus = { connected: false, lastError: null, lastCheck: null };
 
@@ -874,6 +906,18 @@ app.get('/api/channels', (req, res) => {
 
 app.get('/api/gpu-info', (req, res) => {
     res.json(gpuInfo);
+});
+
+app.get('/api/profiles', (req, res) => {
+    res.json({
+        profiles: config.transcoding.profiles,
+        gpuPreferences: config.transcoding.gpuPreferences,
+        availableGPUs: {
+            nvidia: gpuInfo.nvidia,
+            amd: gpuInfo.amd,
+            cpu: true
+        }
+    });
 });
 
 // Check VLC installation

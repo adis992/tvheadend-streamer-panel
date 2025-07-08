@@ -17,7 +17,6 @@ module.exports = {
     
     // Streaming configuration
     streaming: {
-        port: process.env.STREAM_PORT || 8081,
         outputDir: process.env.STREAM_DIR || './streams',
         hlsSegmentTime: parseInt(process.env.HLS_SEGMENT_TIME) || 4,
         hlsListSize: parseInt(process.env.HLS_LIST_SIZE) || 6,
