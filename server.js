@@ -50,6 +50,7 @@ let channels = [];
 let activeStreams = new Map();
 let streamStats = new Map(); // Bandwidth monitoring
 let gpuInfo = { nvidia: false, amd: false };
+let tvheadendStatus = { connected: false, lastError: null, lastCheck: null };
 
 // GPU Detection
 async function detectGPU() {
@@ -127,7 +128,9 @@ function parseM3U(content) {
 async function fetchPlaylist() {
     try {
         console.log('Fetching playlist from:', config.tvheadend.url);
-        const response = await fetch(config.tvheadend.url);
+        const response = await fetch(config.tvheadend.url, {
+            timeout: 10000 // 10 second timeout
+        });
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -136,12 +139,24 @@ async function fetchPlaylist() {
         const content = await response.text();
         channels = parseM3U(content);
         
+        // Update TVHeadend status
+        tvheadendStatus.connected = true;
+        tvheadendStatus.lastError = null;
+        tvheadendStatus.lastCheck = new Date();
+        
         console.log(`Successfully loaded ${channels.length} channels`);
         io.emit('channelsUpdated', channels);
+        io.emit('tvheadendStatus', tvheadendStatus);
         
         return channels;
     } catch (error) {
         console.error('Error fetching playlist:', error);
+        
+        // Update TVHeadend status
+        tvheadendStatus.connected = false;
+        tvheadendStatus.lastError = error.message;
+        tvheadendStatus.lastCheck = new Date();
+        
         console.log('TVHeadend not available, loading demo channels...');
         
         // Demo channels when TVHeadend is not available
@@ -178,8 +193,138 @@ async function fetchPlaylist() {
         
         console.log(`Demo mode: loaded ${channels.length} demo channels`);
         io.emit('channelsUpdated', channels);
+        io.emit('tvheadendStatus', tvheadendStatus);
         
         return channels;
+    }
+}
+
+// Check TVHeadend connectivity
+async function checkTVHeadendConnection() {
+    try {
+        console.log('Checking TVHeadend connectivity...');
+        const response = await fetch(`http://${config.tvheadend.host}:${config.tvheadend.port}/api/status`, {
+            timeout: 5000
+        });
+        
+        tvheadendStatus.connected = response.ok;
+        tvheadendStatus.lastError = response.ok ? null : `Server responded with status ${response.status}`;
+        tvheadendStatus.lastCheck = new Date();
+        
+        io.emit('tvheadendStatus', tvheadendStatus);
+        return response.ok;
+    } catch (error) {
+        console.error('TVHeadend connection check failed:', error);
+        tvheadendStatus.connected = false;
+        tvheadendStatus.lastError = `Connection failed: ${error.message}`;
+        tvheadendStatus.lastCheck = new Date();
+        
+        io.emit('tvheadendStatus', tvheadendStatus);
+        return false;
+    }
+}
+
+// Check FFmpeg installation
+async function checkFFmpegInstallation() {
+    try {
+        console.log('Checking FFmpeg installation...');
+        const result = await new Promise((resolve) => {
+            exec('ffmpeg -version', (error, stdout) => {
+                if (error) {
+                    resolve({ installed: false, error: error.message });
+                } else {
+                    const version = stdout.split('\n')[0];
+                    resolve({ installed: true, version: version });
+                }
+            });
+        });
+        
+        if (result.installed) {
+            console.log('FFmpeg is installed:', result.version);
+            return true;
+        } else {
+            console.warn('FFmpeg not found:', result.error);
+            return false;
+        }
+    } catch (error) {
+        console.error('Error checking FFmpeg installation:', error);
+        return false;
+    }
+}
+
+// Auto-install FFmpeg if not present
+async function autoInstallFFmpeg() {
+    try {
+        console.log('Attempting to auto-install FFmpeg...');
+        
+        // Detect OS type
+        const osCheck = await new Promise((resolve) => {
+            exec('cat /etc/os-release', (error, stdout) => {
+                if (error) {
+                    resolve({ os: 'unknown' });
+                } else {
+                    const isUbuntu = stdout.includes('Ubuntu') || stdout.includes('Debian');
+                    const isFedora = stdout.includes('Fedora');
+                    const isCentOS = stdout.includes('CentOS') || stdout.includes('Red Hat');
+                    resolve({ 
+                        os: isUbuntu ? 'ubuntu' : isFedora ? 'fedora' : isCentOS ? 'centos' : 'unknown',
+                        details: stdout 
+                    });
+                }
+            });
+        });
+        
+        let installCommand = '';
+        
+        switch (osCheck.os) {
+            case 'ubuntu':
+                installCommand = 'sudo apt update && sudo apt install -y ffmpeg';
+                break;
+            case 'fedora':
+                installCommand = 'sudo dnf install -y ffmpeg || sudo dnf install -y --enablerepo=rpmfusion-free ffmpeg';
+                break;
+            case 'centos':
+                installCommand = 'sudo yum install -y epel-release && sudo yum install -y ffmpeg';
+                break;
+            default:
+                console.warn('Unknown OS, cannot auto-install FFmpeg. Please install manually.');
+                return false;
+        }
+        
+        console.log(`Installing FFmpeg on ${osCheck.os}...`);
+        console.log(`Command: ${installCommand}`);
+        
+        const installResult = await new Promise((resolve) => {
+            exec(installCommand, { timeout: 300000 }, (error, stdout, stderr) => { // 5 min timeout
+                if (error) {
+                    resolve({ success: false, error: error.message, stderr: stderr });
+                } else {
+                    resolve({ success: true, stdout: stdout });
+                }
+            });
+        });
+        
+        if (installResult.success) {
+            console.log('FFmpeg installation completed successfully');
+            
+            // Verify installation
+            const verifyResult = await checkFFmpegInstallation();
+            if (verifyResult) {
+                console.log('FFmpeg installation verified successfully');
+                return true;
+            } else {
+                console.error('FFmpeg installation verification failed');
+                return false;
+            }
+        } else {
+            console.error('FFmpeg installation failed:', installResult.error);
+            console.error('stderr:', installResult.stderr);
+            return false;
+        }
+        
+    } catch (error) {
+        console.error('Error during FFmpeg auto-installation:', error);
+        return false;
     }
 }
 
@@ -417,6 +562,79 @@ app.get('/api/gpu-info', (req, res) => {
     res.json(gpuInfo);
 });
 
+// TVHeadend status endpoint
+app.get('/api/tvheadend-status', (req, res) => {
+    res.json(tvheadendStatus);
+});
+
+// Check TVHeadend connection endpoint
+app.post('/api/check-tvheadend', async (req, res) => {
+    try {
+        const isConnected = await checkTVHeadendConnection();
+        res.json({ 
+            connected: isConnected, 
+            status: tvheadendStatus 
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            connected: false, 
+            error: error.message,
+            status: tvheadendStatus 
+        });
+    }
+});
+
+// FFmpeg status and installation endpoints
+app.get('/api/check-ffmpeg', async (req, res) => {
+    try {
+        const isInstalled = await checkFFmpegInstallation();
+        res.json({ 
+            installed: isInstalled,
+            message: isInstalled ? 'FFmpeg is available' : 'FFmpeg not found'
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            installed: false, 
+            error: error.message 
+        });
+    }
+});
+
+app.post('/api/install-ffmpeg', async (req, res) => {
+    try {
+        // First check if already installed
+        const alreadyInstalled = await checkFFmpegInstallation();
+        if (alreadyInstalled) {
+            return res.json({ 
+                success: true, 
+                message: 'FFmpeg is already installed',
+                alreadyInstalled: true 
+            });
+        }
+        
+        // Attempt auto-installation
+        const installSuccess = await autoInstallFFmpeg();
+        
+        if (installSuccess) {
+            res.json({ 
+                success: true, 
+                message: 'FFmpeg installed successfully' 
+            });
+        } else {
+            res.status(500).json({ 
+                success: false, 
+                message: 'FFmpeg installation failed. Please install manually.',
+                installScript: 'You can run: chmod +x install.sh && ./install.sh'
+            });
+        }
+    } catch (error) {
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
+        });
+    }
+});
+
 app.post('/api/refresh-playlist', async (req, res) => {
     try {
         await fetchPlaylist();
@@ -526,6 +744,7 @@ io.on('connection', (socket) => {
     // Send initial data
     socket.emit('channelsUpdated', channels);
     socket.emit('gpuInfo', gpuInfo);
+    socket.emit('tvheadendStatus', tvheadendStatus);
     
     socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);
@@ -538,21 +757,55 @@ async function initializeServer() {
         // Create directories
         await fs.ensureDir(config.streaming.outputDir);
         
+        // Check FFmpeg installation
+        console.log('Checking system requirements...');
+        const ffmpegInstalled = await checkFFmpegInstallation();
+        
+        if (!ffmpegInstalled) {
+            console.warn('FFmpeg not found! Transcoding will not work without FFmpeg.');
+            console.warn('You can:');
+            console.warn('1. Install manually: sudo apt install ffmpeg (Ubuntu/Debian)');
+            console.warn('2. Run the install script: chmod +x install.sh && ./install.sh');
+            console.warn('3. Use the web interface to auto-install');
+            console.warn('Server will continue but transcoding features will be disabled.');
+        }
+        
         // Detect GPU
         await detectGPU();
         
-        // Try to fetch playlist (will fallback to demo if TVHeadend unavailable)
-        try {
-            await fetchPlaylist();
-        } catch (error) {
-            console.log('TVHeadend unavailable, continuing with demo channels');
+        // Check TVHeadend connection first
+        console.log('Checking TVHeadend server connectivity...');
+        const isConnected = await checkTVHeadendConnection();
+        
+        if (isConnected) {
+            console.log('TVHeadend server is reachable, fetching playlist...');
+            try {
+                await fetchPlaylist();
+            } catch (error) {
+                console.warn('Failed to fetch playlist, but TVHeadend is reachable:', error.message);
+            }
+        } else {
+            console.warn('TVHeadend server is not reachable. Using demo channels.');
+            console.warn('Please check TVHeadend server at:', `http://${config.tvheadend.host}:${config.tvheadend.port}`);
+            // Try to fetch playlist anyway (will fallback to demo channels)
+            try {
+                await fetchPlaylist();
+            } catch (error) {
+                console.log('Loading demo channels as fallback');
+            }
         }
+        
+        // Start periodic TVHeadend connectivity checks
+        setInterval(async () => {
+            await checkTVHeadendConnection();
+        }, 30000); // Check every 30 seconds
         
         // Start server
         const PORT = process.env.PORT || 3000;
         server.listen(PORT, () => {
             console.log(`TVHeadend Streamer running on port ${PORT}`);
             console.log(`Available GPUs:`, gpuInfo);
+            console.log(`TVHeadend Status:`, tvheadendStatus);
             console.log(`Loaded ${channels.length} channels`);
             console.log(`Access the web interface at: http://localhost:${PORT}`);
         });
