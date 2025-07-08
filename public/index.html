@@ -497,7 +497,7 @@
         socket.on('gpuInfo', (info) => {
             gpuInfo = info;
             updateGPUStatus();
-        }
+        });
         
         async function checkVLCInstallation() {
             try {
@@ -508,7 +508,7 @@
                 console.error('Error checking VLC installation:', error);
                 vlcInstalled = false;
             }
-        });
+        }
         
         socket.on('streamStarted', (data) => {
             activeStreams.add(data.channelId);

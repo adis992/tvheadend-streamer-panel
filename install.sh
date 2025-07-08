@@ -576,6 +576,13 @@ main() {
     install_project_deps
     create_service
     test_installation
+    
+    # Start the service
+    log "Starting TVHeadend Streamer service..."
+    sudo systemctl start tvh-streamer
+    sleep 2
+    systemctl is-active --quiet tvh-streamer && log "Service successfully started" || warn "Service failed to start automatically"
+    
     show_instructions
 }
 

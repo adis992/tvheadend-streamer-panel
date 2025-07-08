@@ -8,6 +8,9 @@ const fs = require('fs-extra');
 const { spawn, exec } = require('child_process');
 const fetch = require('node-fetch');
 
+// Import configuration
+const config = require('./config');
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
@@ -23,32 +26,257 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Configuration
-const config = {
-    tvheadend: {
-        url: 'http://192.168.100.3:9981/playlist',
-        host: '192.168.100.3',
-        port: 9981
-    },
-    streaming: {
-        port: 8080,
-        outputDir: './streams',
-        hlsSegmentTime: 4,
-        hlsListSize: 6
-    },
-    transcoding: {
-        profiles: {
-            'low': { width: 640, height: 480, bitrate: '500k' },
-            'medium': { width: 1280, height: 720, bitrate: '1500k' },
-            'high': { width: 1920, height: 1080, bitrate: '3000k' }
-        }
-    }
-};
-
 // Global variables
 let channels = [];
 let activeStreams = new Map();
-let streamStats = new Map(); // Bandwidth monitoring
+let strea// Socket.IO events
+io.on('connection', (socket) => {
+    console.log('Client connected');
+    
+    // Send initial data
+    socket.emit('channelsUpdated', channels);
+    socket.emit('gpuInfo', gpuInfo);
+    socket.emit('tvheadendStatus', tvheadendStatus);
+    
+    socket.on('disconnect', () => {
+        console.log('Client disconnected');
+    });
+});
+
+// Auto-install API endpoints
+app.get('/api/detect-system', async (req, res) => {
+    try {
+        const systemInfo = await detectSystemInfo();
+        res.json(systemInfo);
+    } catch (error) {
+        console.error('Error detecting system:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/check-components', async (req, res) => {
+    try {
+        const components = await checkSystemComponents();
+        res.json(components);
+    } catch (error) {
+        console.error('Error checking components:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/auto-install', async (req, res) => {
+    try {
+        // Run the install script
+        const installProcess = spawn('./install.sh', [], {
+            cwd: __dirname,
+            stdio: 'pipe'
+        });
+        
+        installProcess.stdout.on('data', (data) => {
+            io.emit('installProgress', {
+                component: 'auto-install',
+                message: data.toString().trim(),
+                progress: 50
+            });
+        });
+        
+        installProcess.stderr.on('data', (data) => {
+            io.emit('installProgress', {
+                component: 'auto-install',
+                message: data.toString().trim(),
+                progress: 50
+            });
+        });
+        
+        installProcess.on('close', (code) => {
+            if (code === 0) {
+                io.emit('installComplete', { component: 'auto-install' });
+            } else {
+                io.emit('installError', { error: `Installation failed with code ${code}` });
+            }
+        });
+        
+        res.json({ success: true, message: 'Auto installation started' });
+    } catch (error) {
+        console.error('Error starting auto install:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/install/:component', async (req, res) => {
+    try {
+        const component = req.params.component;
+        const success = await installComponent(component);
+        
+        if (success) {
+            res.json({ success: true, message: `${component} installation started` });
+        } else {
+            res.status(500).json({ error: `Failed to start ${component} installation` });
+        }
+    } catch (error) {
+        console.error(`Error installing ${component}:`, error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Helper functions for system detection
+async function detectSystemInfo() {
+    return new Promise((resolve) => {
+        const info = { gpu: 'None detected' };
+        
+        // Get OS info
+        exec('cat /etc/os-release', (error, stdout) => {
+            if (!error) {
+                const lines = stdout.split('\n');
+                const prettyName = lines.find(line => line.startsWith('PRETTY_NAME='));
+                if (prettyName) {
+                    info.os = prettyName.split('=')[1].replace(/"/g, '');
+                }
+            }
+            
+            // Get CPU info
+            exec('cat /proc/cpuinfo | grep "model name" | head -1', (error, stdout) => {
+                if (!error) {
+                    info.cpu = stdout.split(':')[1]?.trim();
+                }
+                
+                // Get Memory info
+                exec('free -h | grep Mem', (error, stdout) => {
+                    if (!error) {
+                        const parts = stdout.split(/\s+/);
+                        info.memory = parts[1];
+                    }
+                    
+                    // Get GPU info
+                    if (gpuInfo.nvidia) {
+                        exec('lspci | grep -i nvidia', (error, stdout) => {
+                            info.gpu = stdout.trim() || 'NVIDIA GPU detected';
+                            resolve(info);
+                        });
+                    } else if (gpuInfo.amd) {
+                        exec('lspci | grep -i -E "(amd|radeon)" | grep -i vga', (error, stdout) => {
+                            info.gpu = stdout.trim() || 'AMD GPU detected';
+                            resolve(info);
+                        });
+                    } else {
+                        resolve(info);
+                    }
+                });
+            });
+        });
+    });
+}
+
+async function checkSystemComponents() {
+    const components = [];
+    
+    // Check Node.js
+    const nodeCheck = await checkCommand('node --version');
+    components.push({
+        name: 'nodejs',
+        displayName: 'Node.js',
+        description: 'JavaScript runtime for server',
+        status: nodeCheck.available ? 'available' : 'missing',
+        version: nodeCheck.version
+    });
+    
+    // Check NPM
+    const npmCheck = await checkCommand('npm --version');
+    components.push({
+        name: 'npm',
+        displayName: 'NPM',
+        description: 'Node package manager',
+        status: npmCheck.available ? 'available' : 'missing',
+        version: npmCheck.version
+    });
+    
+    // Check FFmpeg
+    const ffmpegCheck = await checkCommand('ffmpeg -version');
+    components.push({
+        name: 'ffmpeg',
+        displayName: 'FFmpeg',
+        description: 'Video processing with GPU acceleration',
+        status: ffmpegCheck.available ? 'available' : 'missing',
+        version: ffmpegCheck.version
+    });
+    
+    // Check VLC
+    const vlcCheck = await checkCommand('vlc --version');
+    components.push({
+        name: 'vlc',
+        displayName: 'VLC Media Player',
+        description: 'Media player for testing streams',
+        status: vlcCheck.available ? 'available' : 'missing',
+        version: vlcCheck.version
+    });
+    
+    // Check NVIDIA
+    if (gpuInfo.nvidia) {
+        const nvidiaCheck = await checkCommand('nvidia-smi');
+        components.push({
+            name: 'nvidia-drivers',
+            displayName: 'NVIDIA Drivers',
+            description: 'NVIDIA GPU drivers and CUDA',
+            status: nvidiaCheck.available ? 'available' : 'missing',
+            version: nvidiaCheck.version
+        });
+    }
+    
+    // Check AMD
+    if (gpuInfo.amd) {
+        const amdCheck = await checkCommand('radeontop -v');
+        components.push({
+            name: 'amd-drivers',
+            displayName: 'AMD Drivers',
+            description: 'AMD GPU drivers and Mesa',
+            status: amdCheck.available ? 'available' : 'missing',
+            version: amdCheck.version
+        });
+    }
+    
+    return components;
+}
+
+async function checkCommand(command) {
+    return new Promise((resolve) => {
+        exec(command, (error, stdout, stderr) => {
+            if (error) {
+                resolve({ available: false, version: null });
+            } else {
+                const output = stdout || stderr;
+                const versionMatch = output.match(/(\d+\.[\d\.]+)/);
+                resolve({ 
+                    available: true, 
+                    version: versionMatch ? versionMatch[1] : 'Unknown'
+                });
+            }
+        });
+    });
+}
+
+async function installComponent(component) {
+    // This would trigger individual component installation
+    // For now, we'll just trigger auto install
+    try {
+        const installProcess = spawn('./install.sh', [], {
+            cwd: __dirname,
+            stdio: 'pipe'
+        });
+        
+        installProcess.stdout.on('data', (data) => {
+            io.emit('installProgress', {
+                component: component,
+                message: data.toString().trim(),
+                progress: 50
+            });
+        });
+        
+        return true;
+    } catch (error) {
+        console.error(`Error installing ${component}:`, error);
+        return false;
+    }
+}Map(); // Bandwidth monitoring
 let gpuInfo = { nvidia: false, amd: false };
 let tvheadendStatus = { connected: false, lastError: null, lastCheck: null };
 
@@ -344,32 +572,34 @@ async function autoInstallFFmpeg() {
     }
 }
 
-// Get FFmpeg encoder based on GPU
+// Get FFmpeg encoder based on GPU using config.js
 function getFFmpegEncoder(gpu) {
-    if (gpu === 'nvidia' && gpuInfo.nvidia) {
+    const preferences = config.transcoding.gpuPreferences;
+    
+    if (gpu === 'nvidia' && gpuInfo.nvidia && preferences.nvidia) {
         return {
-            video: 'h264_nvenc',
-            preset: 'fast',
-            extraArgs: ['-gpu', '0']
+            video: preferences.nvidia.encoder,
+            preset: preferences.nvidia.preset,
+            extraArgs: preferences.nvidia.extraArgs,
+            fallback: preferences.cpu // fallback to CPU
         };
-    } else if (gpu === 'amd' && gpuInfo.amd) {
+    } else if (gpu === 'amd' && gpuInfo.amd && preferences.amd) {
         // For older AMD GPUs like RX580, h264_amf may not be available
-        // Try h264_amf first, but fallback to optimized x264 with OpenCL
         return {
-            video: 'h264_amf',
-            preset: 'speed',
-            extraArgs: ['-usage', 'transcoding'],
+            video: preferences.amd.encoder,
+            preset: preferences.amd.preset,
+            extraArgs: preferences.amd.extraArgs,
             fallback: {
-                video: 'libx264',
-                preset: 'fast',
-                extraArgs: ['-x264-params', 'opencl=true']
+                video: preferences.cpu.encoder,
+                preset: preferences.cpu.preset,
+                extraArgs: [...preferences.cpu.extraArgs, '-x264-params', 'opencl=true']
             }
         };
     } else {
         return {
-            video: 'libx264',
-            preset: 'fast',
-            extraArgs: []
+            video: preferences.cpu.encoder,
+            preset: preferences.cpu.preset,
+            extraArgs: preferences.cpu.extraArgs
         };
     }
 }
@@ -646,6 +876,22 @@ app.get('/api/gpu-info', (req, res) => {
     res.json(gpuInfo);
 });
 
+// Check VLC installation
+app.get('/api/check-vlc', async (req, res) => {
+    try {
+        const result = await new Promise((resolve) => {
+            exec('which vlc || command -v vlc', (error, stdout) => {
+                resolve(!error && stdout.trim().length > 0);
+            });
+        });
+        
+        res.json({ installed: result });
+    } catch (error) {
+        console.error('Error checking VLC:', error);
+        res.json({ installed: false, error: error.message });
+    }
+});
+
 // TVHeadend status endpoint
 app.get('/api/tvheadend-status', (req, res) => {
     res.json(tvheadendStatus);
@@ -838,65 +1084,45 @@ io.on('connection', (socket) => {
 // Initialize server
 async function initializeServer() {
     try {
-        // Create directories
-        await fs.ensureDir(config.streaming.outputDir);
+        console.log('Initializing server...');
         
-        // Check FFmpeg installation
-        console.log('Checking system requirements...');
-        const ffmpegInstalled = await checkFFmpegInstallation();
-        
-        if (!ffmpegInstalled) {
-            console.warn('FFmpeg not found! Transcoding will not work without FFmpeg.');
-            console.warn('You can:');
-            console.warn('1. Install manually: sudo apt install ffmpeg (Ubuntu/Debian)');
-            console.warn('2. Run the install script: chmod +x install.sh && ./install.sh');
-            console.warn('3. Use the web interface to auto-install');
-            console.warn('Server will continue but transcoding features will be disabled.');
-        }
-        
-        // Detect GPU
+        // Detect GPU capabilities
         await detectGPU();
+        console.log('GPU detection completed:', gpuInfo);
         
-        // Check TVHeadend connection first
-        console.log('Checking TVHeadend server connectivity...');
-        const isConnected = await checkTVHeadendConnection();
-        
-        if (isConnected) {
-            console.log('TVHeadend server is reachable, fetching playlist...');
-            try {
-                await fetchPlaylist();
-            } catch (error) {
-                console.warn('Failed to fetch playlist, but TVHeadend is reachable:', error.message);
-            }
-        } else {
-            console.warn('TVHeadend server is not reachable. Using demo channels.');
-            console.warn('Please check TVHeadend server at:', `http://${config.tvheadend.host}:${config.tvheadend.port}`);
-            // Try to fetch playlist anyway (will fallback to demo channels)
-            try {
-                await fetchPlaylist();
-            } catch (error) {
-                console.log('Loading demo channels as fallback');
-            }
+        // Check TVHeadend connectivity
+        const tvhConnected = await checkTVHeadendConnection();
+        if (!tvhConnected) {
+            console.warn('Could not connect to TVHeadend server. Service will start but streaming may not work.');
         }
         
-        // Start periodic TVHeadend connectivity checks
-        setInterval(async () => {
-            await checkTVHeadendConnection();
-        }, 30000); // Check every 30 seconds
+        // Fetch initial channel list if TVHeadend is available
+        if (tvhConnected) {
+            await fetchPlaylist();
+        }
         
-        // Start server
-        const PORT = process.env.PORT || 3000;
+        // Start the server
+        const PORT = config.server.port || 3000;
         server.listen(PORT, () => {
-            console.log(`TVHeadend Streamer running on port ${PORT}`);
-            console.log(`Available GPUs:`, gpuInfo);
-            console.log(`TVHeadend Status:`, tvheadendStatus);
-            console.log(`Loaded ${channels.length} channels`);
-            console.log(`Access the web interface at: http://localhost:${PORT}`);
+            console.log(`Server running on port ${PORT}`);
         });
         
+        // Start the streaming server
+        const STREAM_PORT = config.streaming.port || 8080;
+        const streamApp = express();
+        streamApp.use('/streams', express.static(path.join(__dirname, config.streaming.outputDir)));
+        streamApp.listen(STREAM_PORT, () => {
+            console.log(`Streaming server running on port ${STREAM_PORT}`);
+        });
+        
+        console.log('Server initialization completed');
     } catch (error) {
-        console.error('Failed to initialize server:', error);
-        process.exit(1);
+        console.error('Error initializing server:', error);
+        // Continue running the server even if initialization fails
+        const PORT = config.server.port || 3000;
+        server.listen(PORT, () => {
+            console.log(`Server running on port ${PORT} (fallback mode)`);
+        });
     }
 }
 
