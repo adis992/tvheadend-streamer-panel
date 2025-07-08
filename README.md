@@ -1,5 +1,7 @@
 # TVHeadend Streamer - GPU Transcoder
 
+> **🚀 LATEST UPDATE**: Fully tested and optimized for Ubuntu 22.04 with NVIDIA RTX 3090, GTX 1080 Ti, and AMD RX580 (Polaris) GPUs. Complete auto-installation and systemd service integration ready for production deployment.
+
 Napredna platforma za streaming i transkodovanje TV kanala sa TVHeadend servera koristeći GPU akceleraciju (NVIDIA i AMD).
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
@@ -39,6 +41,25 @@ sudo systemctl start tvh-streamer
 ```
 
 **I to je sve! Service se automatski pokreće na boot-u.**
+
+## ✅ Testiran i Verifikovan
+
+**Projekt je uspešno testiran na sledećim GPU konfiguracijama:**
+
+### ✅ **NVIDIA GPUs** (NVENC Hardware Encoding)
+- **GeForce RTX 3090** - ✅ Potpuno funkcionalno
+- **GeForce GTX 1080 Ti** - ✅ Potpuno funkcionalno
+
+### ✅ **AMD GPUs** (AMF/Mesa Fallback)
+- **AMD Radeon RX580 (Polaris)** - ✅ Funkcionalno sa Mesa/OpenCL fallback
+  - *Napomena: RX580 koristi libx264+OpenCL umesto h264_amf (očekivano ponašanje)*
+
+### 🏗️ **Test Environment**
+- **OS**: Ubuntu 22.04 LTS Desktop
+- **Node.js**: 18.x LTS
+- **FFmpeg**: 4.4.6+ sa GPU support
+- **Install Script**: Potpuno automatizovan
+- **Service Management**: Systemd integration
 
 ## 📋 Sistemski Zahtjevi
 
