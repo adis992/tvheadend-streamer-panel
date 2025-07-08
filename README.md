@@ -24,8 +24,8 @@ Napredna platforma za streaming i transkodovanje TV kanala sa TVHeadend servera 
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/yourusername/tvh-streamer-transcoder.git
-cd tvh-streamer-transcoder
+git clone https://github.com/adis992/tvheadend-streamer-panel.git
+cd tvheadend-streamer-panel
 
 # 2. Pokretanje auto-install (instalira SVE!)
 ./install.sh
@@ -38,6 +38,25 @@ sudo systemctl start tvh-streamer
 
 # 5. Otvori web panel
 # http://localhost:3000
+```
+
+## 🔄 Ažuriranje Postojeće Instalacije
+
+Kada trebate ažurirati na najnoviju verziju sa GitHub-a i reinstalirati sve potrebne komponente:
+
+```bash
+# U direktoriju projekta
+./update.sh
+```
+
+Skripta za ažuriranje će:
+
+- Povući najnovije promjene sa GitHub-a
+- Sačuvati vaše korisničke konfiguracije
+- Reinstalirati potrebne ovisnosti
+- Popraviti sve dozvole za direktorije
+- Restartovati servise
+```
 ```
 
 **I to je sve! Service se automatski pokreće na boot-u.**
