@@ -364,6 +364,17 @@ install_project_deps() {
         exit 1
     fi
     
+    # Fix ownership of project directory to current user
+    PROJECT_USER=$(whoami)
+    log "Fixing ownership of project directory for user: $PROJECT_USER"
+    sudo chown -R $PROJECT_USER:$PROJECT_USER . 2>/dev/null || warn "Could not fix ownership"
+    
+    # Remove any existing node_modules created with wrong permissions
+    if [[ -d "node_modules" ]]; then
+        log "Removing existing node_modules directory..."
+        sudo rm -rf node_modules 2>/dev/null || warn "Could not remove node_modules"
+    fi
+    
     npm install
     
     log "Project dependencies installed successfully"
@@ -431,22 +442,35 @@ create_directories() {
     
     # Create directories only if they don't exist
     if [ ! -d "streams" ]; then
-        mkdir -p streams
-        log "Created streams directory"
+        mkdir -p streams 2>/dev/null || {
+            warn "Could not create streams directory with mkdir, trying with sudo..."
+            sudo mkdir -p streams 2>/dev/null || warn "Failed to create streams directory"
+        }
+        [ -d "streams" ] && log "Created streams directory"
     else
         log "Streams directory already exists"
     fi
     
     if [ ! -d "logs" ]; then
-        mkdir -p logs
-        log "Created logs directory"
+        mkdir -p logs 2>/dev/null || {
+            warn "Could not create logs directory with mkdir, trying with sudo..."
+            sudo mkdir -p logs 2>/dev/null || warn "Failed to create logs directory"
+        }
+        [ -d "logs" ] && log "Created logs directory"
     else
         log "Logs directory already exists"
     fi
     
-    # Set proper permissions
-    chmod 755 streams 2>/dev/null || warn "Could not set permissions for streams directory"
-    chmod 755 logs 2>/dev/null || warn "Could not set permissions for logs directory"
+    # Set proper permissions and ownership
+    if [ -d "streams" ]; then
+        sudo chown $USER:$USER streams 2>/dev/null || warn "Could not set ownership for streams directory"
+        chmod 755 streams 2>/dev/null || warn "Could not set permissions for streams directory"
+    fi
+    
+    if [ -d "logs" ]; then
+        sudo chown $USER:$USER logs 2>/dev/null || warn "Could not set ownership for logs directory"
+        chmod 755 logs 2>/dev/null || warn "Could not set permissions for logs directory"
+    fi
     
     log "Directories configured successfully"
 }
