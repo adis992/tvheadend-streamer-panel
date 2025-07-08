@@ -429,14 +429,26 @@ EOF
 create_directories() {
     log "Creating necessary directories..."
     
-    mkdir -p streams
-    mkdir -p logs
+    # Create directories only if they don't exist
+    if [ ! -d "streams" ]; then
+        mkdir -p streams
+        log "Created streams directory"
+    else
+        log "Streams directory already exists"
+    fi
+    
+    if [ ! -d "logs" ]; then
+        mkdir -p logs
+        log "Created logs directory"
+    else
+        log "Logs directory already exists"
+    fi
     
     # Set proper permissions
-    chmod 755 streams
-    chmod 755 logs
+    chmod 755 streams 2>/dev/null || warn "Could not set permissions for streams directory"
+    chmod 755 logs 2>/dev/null || warn "Could not set permissions for logs directory"
     
-    log "Directories created successfully"
+    log "Directories configured successfully"
 }
 
 # Test installation
