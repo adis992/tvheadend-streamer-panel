@@ -463,8 +463,11 @@
                     <button class="btn btn-outline-light btn-sm me-2" id="downloadChannelList">
                         <i class="fas fa-download"></i> Download Channel List
                     </button>
-                    <button class="btn btn-outline-light btn-sm" id="downloadActiveStreams">
+                    <button class="btn btn-outline-light btn-sm me-2" id="downloadActiveStreams">
                         <i class="fas fa-download"></i> Download Active Streams
+                    </button>
+                    <button class="btn btn-outline-light btn-sm" id="exportActiveLinks">
+                        <i class="fas fa-file-export"></i> Export Stream Links
                     </button>
                 </div>
             </div>
@@ -1100,44 +1103,42 @@
             }
         }
         
-        function openStream(channelId) {
-            const channel = channels.find(c => c.id === channelId);
-            if (!channel) {
-                showNotification('Kanal nije pronađen', 'error');
-                return;
-            }
-            
-            // Use channel number if available for HLS URLs
-            const streamId = channel.channelNumber || channelId;
-            const streamUrl = channel.passthrough ? 
-                channel.url : 
-                `http://${window.location.hostname}:${serverConfig.streaming.port}/streams/${streamId}/playlist.m3u8`;
-            
-            console.log('Opening stream URL:', streamUrl);
-            window.open(streamUrl, '_blank');
-        }
-        
-        async function launchVLC(channelId) {
-            if (!vlcInstalled) {
-                showNotification('VLC nije instaliran. Molimo instalirajte VLC media player.', 'error');
-                return;
-            }
-            
+        async function startUdp(channelId) {
             try {
-                const response = await fetch(`/api/launch-vlc/${channelId}`, { method: 'POST' });
+                const profile = qualitySelect.value;
+                const gpu = gpuSelect.value;
+                
+                const response = await fetch(`/api/start-udp/${channelId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profile, gpu })
+                });
+                
                 const result = await response.json();
                 
                 if (response.ok) {
-                    showNotification(`VLC pokrenut za kanal ${channelId}`, 'success');
+                    showNotification(`UDP stream pokrenut za kanal ${channelId}`, 'success');
+                    updateChannelInList(channelId, result);
                 } else {
-                    if (result.error === 'VLC not installed') {
-                        showNotification('VLC nije instaliran. Instalirajte ga koristeći: sudo apt install vlc', 'error');
-                    } else {
-                        throw new Error(result.error);
-                    }
+                    throw new Error(result.error);
                 }
             } catch (error) {
-                showNotification(`Greška pokretanja VLC: ${error.message}`, 'error');
+                showNotification(`Greška pokretanja UDP: ${error.message}`, 'error');
+            }
+        }
+        
+        async function stopUdp(channelId) {
+            try {
+                const response = await fetch(`/api/stop-udp/${channelId}`, { method: 'POST' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification(`UDP stream zaustavljen za kanal ${channelId}`, 'success');
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                showNotification(`Greška zaustavljanja UDP: ${error.message}`, 'error');
             }
         }
         
@@ -1242,6 +1243,210 @@
         
         // Call this function on page load
         fetchServerConfig();
+        
+        function updateChannelInList(channelId, updateData) {
+            const channel = channels.find(c => c.id == channelId);
+            if (channel) {
+                Object.assign(channel, updateData);
+                renderChannels();
+            }
+        }
+        
+        async function fetchServerConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                serverConfig = config;
+                console.log('Server config loaded:', serverConfig);
+                
+                // Load initial data now that config is available
+                await fetchChannels();
+                await fetchProfiles();
+            } catch (error) {
+                console.error('Error loading server config:', error);
+                // Use default config if API fails
+                serverConfig = {
+                    streaming: { port: 3001 }
+                };
+                // Still try to load channels
+                await fetchChannels();
+                await fetchProfiles();
+            }
+        }
+        
+        function openStream(channelId) {
+            const channel = channels.find(c => c.id == channelId);
+            if (channel && channel.isActive) {
+                const streamUrl = channel.passthrough ? 
+                    channel.url : 
+                    `http://${window.location.hostname}:${serverConfig.streaming.port}/streams/${channel.channelNumber || channelId}/playlist.m3u8`;
+                window.open(streamUrl, '_blank');
+            }
+        }
+        
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification('URL copied to clipboard', 'success');
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showNotification('URL copied to clipboard', 'success');
+            });
+        }
+        
+        async function openInVlc(url) {
+            try {
+                const response = await fetch('/api/open-vlc', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification('VLC pokrennut za URL: ' + url, 'success');
+                } else {
+                    throw new Error(result.error || 'Failed to open VLC');
+                }
+            } catch (error) {
+                console.error('Error opening VLC:', error);
+                showNotification('Greška pokretanja VLC: ' + error.message, 'error');
+            }
+        }
+        
+        function copyUdpUrl(url) {
+            copyToClipboard(url);
+        }
+        
+        function manualRefreshChannels() {
+            fetchChannels();
+        }
+        
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show`;
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            // Add to container
+            const container = document.getElementById('progress-container');
+            container.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+        
+        function updateProgressNotification(data) {
+            // Simple progress notification for transcoding
+            console.log('Transcoding progress:', data);
+        }
+        
+        // Download functions
+        function downloadChannelList() {
+            const dataStr = JSON.stringify(channels, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'channels.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function downloadActiveStreams() {
+            const activeChannels = channels.filter(c => c.isActive);
+            const dataStr = JSON.stringify(activeChannels, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'active-streams.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function exportActiveLinks() {
+            window.open('/api/export-active-streams', '_blank');
+        }
+        
+        // Search functionality
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            if (searchTerm === '') {
+                renderChannels(channels);
+            } else {
+                const filtered = channels.filter(channel => 
+                    channel.name.toLowerCase().includes(searchTerm) ||
+                    channel.group.toLowerCase().includes(searchTerm) ||
+                    (channel.channelNumber && channel.channelNumber.toString().includes(searchTerm))
+                );
+                renderChannels(filtered);
+            }
+        });
+
+        // Update system from GitHub
+        async function updateSystem() {
+            if (!confirm('Da li želiš ažurirati sistem sa najnovijim promenama sa GitHub-a? Ovo može uzeti nekoliko minuta.')) {
+                return;
+            }
+            
+            const updateBtn = document.getElementById('updateSystem');
+            const originalText = updateBtn.innerHTML;
+            
+            updateBtn.disabled = true;
+            updateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Ažuriranje...';
+            
+            try {
+                const response = await fetch('/api/update-system', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Sistem je uspešno ažuriran! Stranica će se osvežiti.');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    alert('Greška pri ažuriranju: ' + (data.error || 'Nepoznata greška'));
+                }
+            } catch (error) {
+                alert('Greška pri ažuriranju: ' + error.message);
+            } finally {
+                updateBtn.disabled = false;
+                updateBtn.innerHTML = originalText;
+            }
+        }
+        
+        // Bind download events
+        document.getElementById('updateSystem').addEventListener('click', updateSystem);
+        document.getElementById('downloadChannelList').addEventListener('click', downloadChannelList);
+        document.getElementById('downloadActiveStreams').addEventListener('click', downloadActiveStreams);
+        
+        // Bind refresh playlist button
+        document.getElementById('refresh-btn').addEventListener('click', refreshPlaylist);
+        
+        // Call this function on page load
+        fetchServerConfig();
+        
+        // Initialize export button after page load
+        document.getElementById('exportActiveLinks').addEventListener('click', exportActiveLinks);
     </script>
     </div> <!-- End main-content -->
 </body>

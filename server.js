@@ -1928,70 +1928,23 @@ app.get('/api/active-udp-streams', (req, res) => {
     res.json(streams);
 });
 
-app.get('/api/open-vlc', (req, res) => {
+app.get('/api/config', (req, res) => {
+    res.json({
+        streaming: {
+            port: config.streaming.port
+        },
+        transcoding: {
+            profiles: Object.keys(config.transcoding.profiles)
+        }
+    });
+});
+
+app.post('/api/open-vlc', (req, res) => {
     try {
-        const { url } = req.query;
+        const { url } = req.body;
         
         if (!url) {
-            return res.status(400).json({ error: 'URL parameter is required' });
-        }
-        
-        // Check if VLC is installed
-        const vlcCommand = process.platform === 'win32' ? 'vlc.exe' : 'vlc';
-        
-        // Execute VLC with the provided URL
-        const vlcProcess = spawn(vlcCommand, [url], {
-            detached: true,
-            stdio: 'ignore'
-        });
-        
-        // Let the process run independently
-        vlcProcess.unref();
-        
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Error opening VLC:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/api/active-streams', (req, res) => {
-    const streams = Array.from(activeStreams.entries()).map(([channelId, stream]) => ({
-        channelId,
-        profile: stream.profile,
-        gpu: stream.gpu,
-        startTime: stream.startTime,
-        uptime: Date.now() - stream.startTime
-    }));
-    
-    res.json(streams);
-});
-
-app.post('/api/launch-vlc/:channelId', (req, res) => {
-    try {
-        const { channelId } = req.params;
-        
-        // Find the channel
-        const channel = channels.find(c => c.id == channelId);
-        if (!channel) {
-            return res.status(404).json({ error: 'Channel not found' });
-        }
-        
-        // Check if stream is active
-        if (!channel.isActive) {
-            return res.status(400).json({ error: 'Stream is not active. Please start the stream first.' });
-        }
-        
-        // Determine the correct stream URL
-        let streamUrl;
-        if (channel.passthrough) {
-            // For passthrough, use the original URL
-            streamUrl = channel.url;
-        } else {
-            // For transcoded streams, use HLS URL accessible from network
-            const streamId = channel.channelNumber || channelId;
-            const serverIP = req.headers.host ? req.headers.host.split(':')[0] : 'localhost';
-            streamUrl = `http://${serverIP}:${config.streaming.port}/streams/${streamId}/playlist.m3u8`;
+            return res.status(400).json({ error: 'URL is required' });
         }
         
         // Check if VLC is installed
@@ -1999,133 +1952,41 @@ app.post('/api/launch-vlc/:channelId', (req, res) => {
             if (error) {
                 return res.status(400).json({ 
                     error: 'VLC not installed',
-                    message: 'Please install VLC media player first'
+                    message: 'Please install VLC media player first: sudo apt install vlc'
                 });
             }
             
-            // Launch VLC with proper display and interface settings
-            const vlcCommand = `DISPLAY=:0 vlc "${streamUrl}" --intf qt --started-from-file &`;
+            // Launch VLC with the URL - ensure GUI is shown
+            // Remove --intf dummy to show VLC interface
+            const vlcCommand = `DISPLAY=:0 vlc "${url}" >/dev/null 2>&1 &`;
+            
+            console.log(`Launching VLC with command: ${vlcCommand}`);
             
             exec(vlcCommand, (error, stdout, stderr) => {
                 if (error) {
                     console.error('VLC launch error:', error);
-                    // Try alternative launch method
-                    const fallbackCommand = `nohup vlc "${streamUrl}" > /dev/null 2>&1 &`;
-                    exec(fallbackCommand, (fallbackError) => {
-                        if (fallbackError) {
-                            return res.status(500).json({ error: 'Failed to launch VLC' });
-                        }
-                        res.json({ 
-                            success: true, 
-                            message: 'VLC launched successfully (fallback)',
-                            streamUrl,
-                            mode: channel.passthrough ? 'passthrough' : 'transcoded'
-                        });
-                    });
-                } else {
-                    res.json({ 
-                        success: true, 
-                        message: 'VLC launched successfully',
-                        streamUrl,
-                        mode: channel.passthrough ? 'passthrough' : 'transcoded'
+                    return res.status(500).json({ 
+                        error: 'Failed to launch VLC',
+                        details: error.message 
                     });
                 }
+                
+                console.log(`VLC pokrennut za URL: ${url}`);
+                res.json({ 
+                    success: true, 
+                    message: `VLC launched successfully for ${url}`,
+                    url: url
+                });
             });
         });
         
     } catch (error) {
+        console.error('Open VLC error:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-app.get('/api/check-vlc', (req, res) => {
-    exec('which vlc', (error) => {
-        res.json({ 
-            installed: !error,
-            message: error ? 'VLC not installed' : 'VLC is available'
-        });
-    });
-});
-
-// Serve HLS streams
-app.use('/stream', express.static(config.streaming.outputDir));
-
-// Socket.IO events
-io.on('connection', (socket) => {
-    console.log('Client connected:', socket.id);
-    
-    // Send initial data
-    socket.emit('channelsUpdated', channels);
-    socket.emit('gpuInfo', gpuInfo);
-    socket.emit('tvheadendStatus', tvheadendStatus);
-    
-    socket.on('disconnect', () => {
-        console.log('Client disconnected:', socket.id);
-    });
-});
-
-// Initialize server
-async function initializeServer() {
-    try {
-        console.log('Initializing server...');
-        
-        // Detect GPU capabilities
-        await detectGPU();
-        console.log('GPU detection completed:', gpuInfo);
-        
-        // Check TVHeadend connectivity
-        const tvhConnected = await checkTVHeadendConnection();
-        if (!tvhConnected) {
-            console.warn('Could not connect to TVHeadend server. Service will start but streaming may not work.');
-        }
-        
-        // Fetch initial channel list if TVHeadend is available
-        if (tvhConnected) {
-            await fetchPlaylist();
-        }
-        
-        // Start the server
-        const PORT = config.server.port || 3000;
-        server.listen(PORT, () => {
-            console.log(`Server running on port ${PORT}`);
-        });
-        
-        // Start the streaming server
-        const STREAM_PORT = config.streaming.port || 8080;
-        const streamApp = express();
-        streamApp.use('/streams', express.static(path.join(__dirname, config.streaming.outputDir)));
-        streamApp.listen(STREAM_PORT, () => {
-            console.log(`Streaming server running on port ${STREAM_PORT}`);
-        });
-        
-        console.log('Server initialization completed');
-    } catch (error) {
-        console.error('Error initializing server:', error);
-        // Continue running the server even if initialization fails
-        const PORT = config.server.port || 3000;
-        server.listen(PORT, () => {
-            console.log(`Server running on port ${PORT} (fallback mode)`);
-        });
-    }
-}
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('Shutting down gracefully...');
-    
-    // Stop all active streams
-    for (const [channelId, stream] of activeStreams) {
-        stream.process.kill('SIGTERM');
-    }
-    
-    server.close(() => {
-        console.log('Server closed');
-        process.exit(0);
-    });
-});
-
-// Kernel management endpoints
-app.get('/api/kernel/current', (req, res) => {
+app.get('/api/kernel/check', (req, res) => {
     exec('uname -r', (error, stdout, stderr) => {
         if (error) {
             return res.status(500).json({ error: 'Failed to get kernel version' });
@@ -2188,6 +2049,49 @@ app.get('/api/kernel/check', (req, res) => {
     });
 });
 
+// Export active streams in simple format
+app.get('/api/export-active-streams', (req, res) => {
+    try {
+        let exportText = '';
+        
+        for (const channel of channels) {
+            if (channel.isActive) {
+                exportText += `"${channel.name}"\n`;
+                
+                // Add HLS/Direct stream URL
+                if (channel.passthrough) {
+                    exportText += `${channel.url}\n`;
+                } else {
+                    exportText += `http://192.168.100.3:${config.streaming.port}/streams/${channel.channelNumber || channel.id}/playlist.m3u8\n`;
+                }
+                
+                // Add UDP stream URL if available
+                if (channel.udpStreaming && channel.simpleUdpUrl) {
+                    exportText += `${channel.simpleUdpUrl}\n`;
+                }
+                
+                exportText += '\n';
+            }
+        }
+        
+        if (exportText === '') {
+            exportText = 'No active streams found.\n';
+        }
+        
+        res.setHeader('Content-Type', 'text/plain');
+        res.setHeader('Content-Disposition', 'attachment; filename="active-streams.txt"');
+        res.send(exportText);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Start the server
-initializeServer();
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`🚀 TVHeadend Streamer Panel running on port ${PORT}`);
+    console.log(`🔗 Access at: http://localhost:${PORT}`);
+    
+    console.log('Server started successfully');
+});
 
