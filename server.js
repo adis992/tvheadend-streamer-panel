@@ -2184,42 +2184,109 @@ app.get('/api/export-active-streams', (req, res) => {
 // Update system from GitHub
 app.post('/api/update-system', async (req, res) => {
     try {
-        // Execute the update.sh script
-        const updateProcess = spawn('./update.sh', [], {
+        const updateStartTime = Date.now();
+        log.info('System update requested via API');
+        
+        // Make update.sh executable first to avoid permission issues
+        try {
+            fs.chmodSync(path.join(__dirname, 'update.sh'), 0o755);
+            log.info('Made update.sh executable');
+        } catch (err) {
+            log.error(`Error setting update.sh permissions: ${err.message}`);
+            return res.status(500).json({
+                success: false,
+                error: 'Could not set executable permissions on update script',
+                details: err.message
+            });
+        }
+        
+        // Set a timeout for the update process (15 minutes)
+        const updateTimeout = 15 * 60 * 1000;
+        let updateTimedOut = false;
+        
+        const updateProcess = spawn('bash', ['./update.sh'], {
             cwd: __dirname,
-            stdio: 'pipe'
+            stdio: 'pipe',
+            env: {...process.env, FORCE_COLOR: '1'} // Preserve colors in output
         });
+        
+        // Set up timeout handler
+        const timeoutId = setTimeout(() => {
+            updateTimedOut = true;
+            try {
+                // Try to kill the update process if it's still running
+                updateProcess.kill('SIGTERM');
+                log.error('Update process timed out after 15 minutes');
+            } catch (err) {
+                log.error(`Error terminating update process: ${err.message}`);
+            }
+        }, updateTimeout);
         
         let stdoutData = '';
         let stderrData = '';
         
         updateProcess.stdout.on('data', (data) => {
-            stdoutData += data.toString();
-            console.log(`Update stdout: ${data.toString().trim()}`);
+            const output = data.toString();
+            stdoutData += output;
+            log.info(`Update stdout: ${output.trim()}`);
         });
         
         updateProcess.stderr.on('data', (data) => {
-            stderrData += data.toString();
-            console.error(`Update stderr: ${data.toString().trim()}`);
+            const output = data.toString();
+            stderrData += output;
+            log.error(`Update stderr: ${output.trim()}`);
+        });
+        
+        updateProcess.on('error', (err) => {
+            clearTimeout(timeoutId);
+            log.error(`Error spawning update process: ${err.message}`);
+            res.status(500).json({
+                success: false,
+                error: `Failed to start update process: ${err.message}`
+            });
         });
         
         updateProcess.on('close', (code) => {
+            clearTimeout(timeoutId);
+            const updateDuration = ((Date.now() - updateStartTime) / 1000).toFixed(2);
+            
+            if (updateTimedOut) {
+                log.error(`Update process timed out after ${updateDuration} seconds`);
+                return res.status(500).json({
+                    success: false,
+                    error: 'Update process timed out after 15 minutes',
+                    stdout: stdoutData,
+                    stderr: stderrData
+                });
+            }
+            
             if (code === 0) {
+                log.info(`Update completed successfully in ${updateDuration} seconds`);
                 res.json({ 
                     success: true, 
                     message: 'System updated successfully',
+                    duration: `${updateDuration} seconds`,
                     output: stdoutData
                 });
+                
+                // Restart check - this could be used for auto-restart if needed
+                const needsRestart = stdoutData.includes('Application restart required');
+                if (needsRestart) {
+                    log.info('Update indicates application needs restart - will be handled by systemd');
+                }
             } else {
+                log.error(`Update failed with code ${code} after ${updateDuration} seconds`);
                 res.status(500).json({ 
                     success: false, 
                     error: `Update failed with code ${code}`,
+                    duration: `${updateDuration} seconds`,
                     output: stdoutData,
                     errorOutput: stderrData
                 });
             }
         });
     } catch (error) {
+        log.error(`Error in update system endpoint: ${error.message}`);
         console.error('Error updating system:', error);
         res.status(500).json({ 
             success: false, 

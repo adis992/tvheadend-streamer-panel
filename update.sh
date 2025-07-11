@@ -30,6 +30,10 @@ error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
 # Check if we're in the right directory
 if [[ ! -f "server.js" ]] || [[ ! -f "package.json" ]]; then
     error "This script must be run from the TVHeadend Streamer project directory"
@@ -48,11 +52,18 @@ if [[ $EUID -eq 0 ]]; then
     exit 1
 fi
 
+# Detect system architecture
+ARCH=$(uname -m)
+log "Detected system architecture: $ARCH"
+if [[ "$ARCH" != "x86_64" && "$ARCH" != "amd64" && "$ARCH" != "arm64" && "$ARCH" != "aarch64" ]]; then
+    warn "Non-standard architecture detected: $ARCH. Some features may not work correctly."
+fi
+
 # Stop the service if it's running
 log "Checking if service is running..."
 if systemctl is-active --quiet tvh-streamer; then
     log "Stopping TVHeadend Streamer service..."
-    sudo systemctl stop tvh-streamer
+    sudo systemctl stop tvh-streamer || warn "Could not stop service. It may not be properly installed or running."
 fi
 
 # Save user configurations if needed
@@ -135,6 +146,57 @@ if [[ -d "node_modules" ]]; then
     rm -rf node_modules 2>/dev/null || sudo rm -rf node_modules
 fi
 
+# Check for GPU support based on architecture
+if [[ "$ARCH" == "x86_64" || "$ARCH" == "amd64" ]]; then
+    # Check and reinstall AMD GPU support if needed
+    log "Checking for AMD GPU support..."
+    if lspci | grep -i amd | grep -i vga &> /dev/null || lspci | grep -i radeon &> /dev/null; then
+        log "AMD GPU detected. Making sure drivers are installed..."
+        
+        # Install basic Mesa drivers and VAAPI support
+        if command -v apt &> /dev/null; then
+            sudo apt update
+            sudo apt install -y mesa-va-drivers mesa-vdpau-drivers radeontop libdrm-amdgpu1 || warn "Some AMD packages could not be installed"
+            
+            # Check for AMF support
+            if ! ffmpeg -encoders 2>/dev/null | grep -q "h264_amf"; then
+                log "Adding AMD AMF support for ffmpeg..."
+                sudo apt install -y ffmpeg-amf || warn "Could not install ffmpeg-amf package"
+            fi
+        elif command -v dnf &> /dev/null; then
+            sudo dnf install -y mesa-va-drivers mesa-vdpau-drivers radeontop || warn "Some AMD packages could not be installed"
+        fi
+        
+        log "AMD GPU support reinstalled/verified"
+    else
+        log "No AMD GPU detected, checking for NVIDIA GPU..."
+        if lspci | grep -i nvidia &> /dev/null; then
+            log "NVIDIA GPU detected. Checking drivers..."
+            if ! command -v nvidia-smi &> /dev/null; then
+                warn "NVIDIA GPU detected but nvidia-smi not found. GPU acceleration may not work."
+                warn "Please install NVIDIA drivers manually if needed."
+            else
+                log "NVIDIA drivers appear to be installed."
+            fi
+        else
+            log "No dedicated GPU detected, will use software encoding."
+        fi
+    fi
+elif [[ "$ARCH" == "arm64" || "$ARCH" == "aarch64" ]]; then
+    log "ARM64 architecture detected. Will use software encoding or hardware acceleration if available."
+    # Check for ARM-specific hardware acceleration
+    if command -v apt &> /dev/null; then
+        sudo apt update
+        sudo apt install -y ffmpeg || warn "Could not install ffmpeg package"
+    elif command -v dnf &> /dev/null; then
+        sudo dnf install -y ffmpeg || warn "Could not install ffmpeg package"
+    fi
+else
+    log "Unsupported architecture for hardware acceleration: $ARCH. Will use software encoding."
+fi
+
+# Install dependencies
+log "Installing npm dependencies..."
 npm install || error "Failed to install dependencies"
 
 # Update service file
@@ -187,28 +249,34 @@ EOF
 # Restart the service
 log "Restarting service..."
 sudo systemctl daemon-reload
-sudo systemctl start tvh-streamer
+sudo systemctl start tvh-streamer || warn "Failed to start service. Check logs with 'sudo journalctl -u tvh-streamer'"
 sleep 2
 
 # Test FFmpeg encoders
 log "Testing FFmpeg encoders after update:"
     
 if ffmpeg -encoders 2>/dev/null | grep -q "h264_nvenc"; then
-    log "✓ NVIDIA H.264 encoder available"
+    success "✓ NVIDIA H.264 encoder available"
 else
     warn "✗ NVIDIA H.264 encoder not available"
 fi
 
 if ffmpeg -encoders 2>/dev/null | grep -q "h264_amf"; then
-    log "✓ AMD H.264 encoder available"
+    success "✓ AMD H.264 encoder available"
 else
     warn "✗ AMD H.264 encoder not available (will use libx264+OpenCL)"
 fi
 
-if ffmpeg -encoders 2>/dev/null | grep -q "libx264"; then
-    log "✓ Software H.264 encoder available"
+if ffmpeg -encoders 2>/dev/null | grep -q "h264_qsv"; then
+    success "✓ Intel QuickSync H.264 encoder available"
 else
-    warn "✗ Software H.264 encoder not available"
+    warn "✗ Intel QuickSync H.264 encoder not available"
+fi
+
+if ffmpeg -encoders 2>/dev/null | grep -q "libx264"; then
+    success "✓ Software H.264 encoder available"
+else
+    error "✗ Software H.264 encoder not available - this is required as a fallback!"
 fi
 
 # Check service status
