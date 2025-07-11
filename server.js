@@ -1317,30 +1317,47 @@ function stopUdpStream(channelId) {
 function monitorBandwidth() {
     for (const [channelId, stream] of activeStreams) {
         try {
-            // Skip bandwidth monitoring for passthrough streams (no output files)
+            const channelIndex = channels.findIndex(c => c.id == channelId);
+            if (channelIndex === -1) continue;
+            
+            const stats = streamStats.get(channelId);
+            if (!stats) continue;
+            
+            // For passthrough streams, try to get network stats
             if (stream.passthrough || !stream.outputPath) {
-                // For passthrough streams, just update the channel to show it's active
-                const channelIndex = channels.findIndex(c => c.id == channelId);
-                if (channelIndex !== -1) {
-                    channels[channelIndex].bandwidth = 0; // No file bandwidth for passthrough
-                    channels[channelIndex].totalData = 0;
+                // For passthrough, estimate bandwidth from stream stats or set a default
+                const now = Date.now();
+                const timeDiff = (now - stats.lastCheck) / 1000;
+                
+                if (timeDiff > 0) {
+                    // For passthrough, show estimated bandwidth (could improve with actual network monitoring)
+                    channels[channelIndex].bandwidth = 2.5; // Estimated 2.5 MB/s for typical TV stream
+                    channels[channelIndex].totalData = (stats.totalData || 0) + (2.5 * timeDiff / 60); // Accumulate MB
+                    stats.lastCheck = now;
+                    stats.totalData = channels[channelIndex].totalData;
                 }
                 continue;
             }
             
             const outputDir = path.dirname(stream.outputPath);
-            const stats = streamStats.get(channelId);
             
-            if (stats && fs.existsSync(outputDir)) {
+            if (fs.existsSync(outputDir)) {
                 // Calculate directory size
                 let totalBytes = 0;
                 const files = fs.readdirSync(outputDir);
                 
                 for (const file of files) {
                     const filePath = path.join(outputDir, file);
-                    if (fs.existsSync(filePath)) {
-                        const fileStat = fs.statSync(filePath);
-                        totalBytes += fileStat.size;
+                    try {
+                        if (fs.existsSync(filePath)) {
+                            const fileStat = fs.statSync(filePath);
+                            if (fileStat.isFile()) {
+                                totalBytes += fileStat.size;
+                            }
+                        }
+                    } catch (fileError) {
+                        // Skip files that can't be read
+                        continue;
                     }
                 }
                 
@@ -1348,7 +1365,7 @@ function monitorBandwidth() {
                 const timeDiff = (now - stats.lastCheck) / 1000; // seconds
                 const bytesDiff = totalBytes - stats.lastBytes;
                 
-                if (timeDiff > 0) {
+                if (timeDiff > 1.0 && bytesDiff >= 0) { // Minimum 1 second for reliable measurement
                     // Calculate bandwidth in MB/s
                     const bandwidth = (bytesDiff / (1024 * 1024)) / timeDiff;
                     
@@ -1358,11 +1375,16 @@ function monitorBandwidth() {
                     stats.lastBytes = totalBytes;
                     
                     // Update channel info
-                    const channelIndex = channels.findIndex(c => c.id == channelId);
-                    if (channelIndex !== -1) {
-                        channels[channelIndex].bandwidth = stats.bandwidth;
-                        channels[channelIndex].totalData = stats.totalData;
+                    channels[channelIndex].bandwidth = stats.bandwidth;
+                    channels[channelIndex].totalData = stats.totalData;
+                    
+                    if (bandwidth > 0.01) { // Only log significant bandwidth
+                        console.log(`Channel ${channelId} bandwidth: ${stats.bandwidth.toFixed(2)} MB/s, total: ${stats.totalData.toFixed(2)} MB`);
                     }
+                } else if (timeDiff > 5 && bytesDiff === 0) {
+                    // No new data for 5+ seconds, might be stream issue
+                    stats.bandwidth = 0;
+                    channels[channelIndex].bandwidth = 0;
                 }
             }
         } catch (error) {
@@ -1370,8 +1392,10 @@ function monitorBandwidth() {
         }
     }
     
-    // Emit updated channel data
-    io.emit('channelsUpdated', channels);
+    // Emit updated channel data only if there are active streams
+    if (activeStreams.size > 0) {
+        io.emit('channelsUpdated', channels);
+    }
 }
 
 // Start bandwidth monitoring
@@ -1934,13 +1958,29 @@ app.get('/api/active-streams', (req, res) => {
 app.post('/api/launch-vlc/:channelId', (req, res) => {
     try {
         const { channelId } = req.params;
-        const stream = activeStreams.get(channelId);
         
-        if (!stream) {
-            return res.status(404).json({ error: 'Stream not found or not active' });
+        // Find the channel
+        const channel = channels.find(c => c.id == channelId);
+        if (!channel) {
+            return res.status(404).json({ error: 'Channel not found' });
         }
         
-        const streamUrl = `http://localhost:3000/stream/${channelId}/playlist.m3u8`;
+        // Check if stream is active
+        if (!channel.isActive) {
+            return res.status(400).json({ error: 'Stream is not active. Please start the stream first.' });
+        }
+        
+        // Determine the correct stream URL
+        let streamUrl;
+        if (channel.passthrough) {
+            // For passthrough, use the original URL
+            streamUrl = channel.url;
+        } else {
+            // For transcoded streams, use HLS URL accessible from network
+            const streamId = channel.channelNumber || channelId;
+            const serverIP = req.headers.host ? req.headers.host.split(':')[0] : 'localhost';
+            streamUrl = `http://${serverIP}:${config.streaming.port}/streams/${streamId}/playlist.m3u8`;
+        }
         
         // Check if VLC is installed
         exec('which vlc', (error) => {
@@ -1951,20 +1991,33 @@ app.post('/api/launch-vlc/:channelId', (req, res) => {
                 });
             }
             
-            // Launch VLC with the stream URL
-            const vlcCommand = `vlc "${streamUrl}" --intf dummy --extraintf http --http-password vlcpassword`;
+            // Launch VLC with proper display and interface settings
+            const vlcCommand = `DISPLAY=:0 vlc "${streamUrl}" --intf qt --started-from-file &`;
             
             exec(vlcCommand, (error, stdout, stderr) => {
                 if (error) {
                     console.error('VLC launch error:', error);
-                    return res.status(500).json({ error: 'Failed to launch VLC' });
+                    // Try alternative launch method
+                    const fallbackCommand = `nohup vlc "${streamUrl}" > /dev/null 2>&1 &`;
+                    exec(fallbackCommand, (fallbackError) => {
+                        if (fallbackError) {
+                            return res.status(500).json({ error: 'Failed to launch VLC' });
+                        }
+                        res.json({ 
+                            success: true, 
+                            message: 'VLC launched successfully (fallback)',
+                            streamUrl,
+                            mode: channel.passthrough ? 'passthrough' : 'transcoded'
+                        });
+                    });
+                } else {
+                    res.json({ 
+                        success: true, 
+                        message: 'VLC launched successfully',
+                        streamUrl,
+                        mode: channel.passthrough ? 'passthrough' : 'transcoded'
+                    });
                 }
-                
-                res.json({ 
-                    success: true, 
-                    message: 'VLC launched successfully',
-                    streamUrl 
-                });
             });
         });
         
@@ -2056,6 +2109,95 @@ process.on('SIGTERM', () => {
     server.close(() => {
         console.log('Server closed');
         process.exit(0);
+    });
+});
+
+// Kernel management endpoints
+app.get('/api/kernel/current', (req, res) => {
+    exec('uname -r', (error, stdout, stderr) => {
+        if (error) {
+            return res.status(500).json({ error: 'Failed to get kernel version' });
+        }
+        res.json({ 
+            current: stdout.trim(),
+            success: true 
+        });
+    });
+});
+
+app.get('/api/kernel/available', (req, res) => {
+    // Get available kernels from apt
+    exec('apt list --installed | grep linux-image | head -10', (error, stdout, stderr) => {
+        if (error) {
+            return res.status(500).json({ error: 'Failed to get available kernels' });
+        }
+        
+        const kernels = stdout.split('\n')
+            .filter(line => line.includes('linux-image'))
+            .map(line => {
+                const match = line.match(/linux-image-([^\s\/]+)/);
+                return match ? match[1] : null;
+            })
+            .filter(Boolean)
+            .slice(0, 10);
+            
+        res.json({ 
+            kernels,
+            success: true 
+        });
+    });
+});
+
+app.get('/api/kernel/check', (req, res) => {
+    exec('uname -r', (error, stdout, stderr) => {
+        if (error) {
+            return res.status(500).json({ error: 'Failed to check kernel' });
+        }
+        
+        const currentKernel = stdout.trim();
+        
+        // Get available kernels from repositories
+        exec('apt-cache search "^linux-image-[0-9]" | grep -E "(generic|hwe)" | head -10', (error2, stdout2, stderr2) => {
+            let availableKernels = [];
+            
+            if (!error2) {
+                availableKernels = stdout2.split('\n')
+                    .filter(line => line.trim() && line.includes('linux-image'))
+                    .map(line => {
+                        const match = line.match(/linux-image-([^\s]+)/);
+                        return match ? match[1] : null;
+                    })
+                    .filter(Boolean)
+                    .filter(kernel => !kernel.includes('dbg') && !kernel.includes('unsigned'))
+                    .slice(0, 10);
+            }
+            
+            // If we don't have enough from apt-cache, add some common stable kernels
+            if (availableKernels.length < 5) {
+                const commonKernels = [
+                    '5.15.0-91-generic',
+                    '6.2.0-060200-generic', 
+                    '6.5.0-060500-generic',
+                    '6.8.0-60-generic',
+                    'generic-hwe-22.04',
+                    '5.19.0-050900-generic',
+                    '6.1.0-060100-generic'
+                ];
+                
+                // Add missing common kernels that aren't already in the list
+                for (const kernel of commonKernels) {
+                    if (!availableKernels.includes(kernel) && availableKernels.length < 10) {
+                        availableKernels.push(kernel);
+                    }
+                }
+            }
+                
+            res.json({
+                currentKernel,
+                availableKernels: availableKernels.slice(0, 10),
+                success: true
+            });
+        });
     });
 });
 

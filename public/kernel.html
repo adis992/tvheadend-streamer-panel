@@ -372,31 +372,45 @@
         // Check current kernel
         async function checkCurrentKernel() {
             try {
-                const response = await fetch('/api/kernel/current');
+                const response = await fetch('/api/kernel/check');
                 const data = await response.json();
-                document.getElementById('current-kernel').textContent = data.kernel || 'Unknown';
+                
+                if (data.success) {
+                    document.getElementById('current-kernel').textContent = data.currentKernel;
+                    
+                    // Display available kernels
+                    const kernelsList = document.getElementById('available-kernels');
+                    if (kernelsList) {
+                        kernelsList.innerHTML = '';
+                        
+                        if (data.availableKernels && data.availableKernels.length > 0) {
+                            data.availableKernels.forEach((kernel, index) => {
+                                const div = document.createElement('div');
+                                div.className = 'kernel-item mb-1 p-2 rounded';
+                                div.style.background = 'rgba(255, 255, 255, 0.1)';
+                                div.innerHTML = `
+                                    <code>${index + 1}. ${kernel}</code>
+                                    ${kernel === data.currentKernel ? ' <span class="badge bg-success">Current</span>' : ''}
+                                `;
+                                kernelsList.appendChild(div);
+                            });
+                        } else {
+                            kernelsList.innerHTML = '<div class="text-muted">No kernels found</div>';
+                        }
+                    }
+                } else {
+                    document.getElementById('current-kernel').textContent = 'Error loading kernel info';
+                }
             } catch (error) {
+                console.error('Error checking kernel:', error);
                 document.getElementById('current-kernel').textContent = 'Error: ' + error.message;
             }
         }
         
         // List available kernels
         async function listKernels() {
-            try {
-                const response = await fetch('/api/kernel/list');
-                const data = await response.json();
-                const kernelList = document.getElementById('available-kernels');
-                
-                if (data.kernels && data.kernels.length > 0) {
-                    kernelList.innerHTML = data.kernels.map((kernel, index) => 
-                        `<div>${index}: ${kernel}</div>`
-                    ).join('');
-                } else {
-                    kernelList.textContent = 'No kernels found';
-                }
-            } catch (error) {
-                document.getElementById('available-kernels').textContent = 'Error: ' + error.message;
-            }
+            // This function is called by the existing code, but we now handle it in checkCurrentKernel
+            await checkCurrentKernel();
         }
         
         // Install specific kernel
