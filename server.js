@@ -755,7 +755,7 @@ function getFFmpegEncoder(gpu, codec = 'h264') {
             return {
                 video: 'hevc_nvenc',
                 preset: 'medium',
-                extraArgs: ['-gpu', '0', '-rc', 'cbr'],
+                extraArgs: ['-gpu', '0', '-rc', 'cbr', '-profile:v', 'main'],
                 fallback: {
                     video: 'libx265',
                     preset: 'medium',
@@ -763,46 +763,64 @@ function getFFmpegEncoder(gpu, codec = 'h264') {
                 }
             };
         } else if (gpu === 'amd' && gpuInfo.amd) {
+            // Try AMD HEVC encoder first, fallback to software
             return {
                 video: 'hevc_amf',
                 preset: 'quality',
-                extraArgs: ['-usage', 'transcoding'],
+                extraArgs: [
+                    '-usage', 'transcoding',
+                    '-quality', 'quality',
+                    '-rc', 'cqp',
+                    '-qp_i', '28',
+                    '-qp_p', '30',
+                    '-profile:v', 'main'
+                ],
                 fallback: {
                     video: 'libx265',
                     preset: 'medium',
-                    extraArgs: ['-threads', '0', '-x265-params', 'pools=+,-']
+                    extraArgs: ['-threads', '0', '-crf', '28', '-preset', 'medium']
                 }
             };
         } else {
+            // Software HEVC encoding
             return {
                 video: 'libx265',
                 preset: 'medium',
-                extraArgs: ['-threads', '0']
+                extraArgs: ['-threads', '0', '-crf', '28', '-preset', 'medium']
             };
         }
     }
     
-    // Default H.264 codec handling
+    // H.264 codec handling
     if (gpu === 'nvidia' && gpuInfo.nvidia && preferences.nvidia) {
         return {
             video: preferences.nvidia.encoder,
             preset: preferences.nvidia.preset,
             extraArgs: preferences.nvidia.extraArgs,
-            fallback: preferences.cpu // fallback to CPU
+            fallback: preferences.cpu
         };
     } else if (gpu === 'amd' && gpuInfo.amd && preferences.amd) {
-        // For older AMD GPUs like RX580, h264_amf may not be available
+        // Enhanced AMD encoding for RX580
         return {
-            video: preferences.amd.encoder,
-            preset: preferences.amd.preset,
-            extraArgs: preferences.amd.extraArgs,
+            video: 'h264_amf',
+            preset: 'quality',
+            extraArgs: [
+                '-usage', 'transcoding',
+                '-quality', 'quality',
+                '-rc', 'cqp',
+                '-qp_i', '23',
+                '-qp_p', '25',
+                '-profile:v', 'high',
+                '-level', '4.1'
+            ],
             fallback: {
-                video: preferences.cpu.encoder,
-                preset: preferences.cpu.preset,
-                extraArgs: [...preferences.cpu.extraArgs, '-x264-params', 'opencl=true']
+                video: 'libx264',
+                preset: 'medium',
+                extraArgs: ['-threads', '0', '-crf', '23', '-preset', 'medium']
             }
         };
     } else {
+        // Software encoding fallback
         return {
             video: preferences.cpu.encoder,
             preset: preferences.cpu.preset,
@@ -905,15 +923,16 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
         
         // Video encoding
         '-c:v', encoder.video,
-        '-preset', encoder.preset,
+        ...encoder.extraArgs, // Add extra arguments for encoder
         '-b:v', profileConfig.bitrate,
         '-s', `${profileConfig.width}x${profileConfig.height}`,
+        '-r', profileConfig.fps || 25,
         
         // Audio
         '-c:a', 'aac',
         '-b:a', profileConfig.audioBitrate || '128k',
         
-        // Output
+        // Output format and HLS settings
         '-f', 'hls',
         '-hls_time', config.streaming.hlsSegmentTime,
         '-hls_list_size', config.streaming.hlsListSize,
@@ -932,23 +951,33 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
     ffmpeg.stderr.on('data', (data) => {
         const output = data.toString();
         
-        // Check for encoder fallback
-        if (output.includes('h264_amf') && output.includes('not found') && encoder.fallback && !usingFallback) {
-            console.warn('AMD encoder not available, falling back to software encoding');
+        // Check for various encoder errors that require fallback
+        const needsFallback = (
+            (output.includes('h264_amf') && (output.includes('not found') || output.includes('Failed to initialize'))) ||
+            (output.includes('hevc_amf') && (output.includes('not found') || output.includes('Failed to initialize'))) ||
+            (output.includes('Unknown encoder') && (output.includes('amf') || output.includes('nvenc'))) ||
+            output.includes('No such filter')
+        );
+        
+        if (needsFallback && encoder.fallback && !usingFallback) {
+            console.warn(`GPU encoder failed (${encoder.video}), falling back to software encoding (${encoder.fallback.video})`);
             
             ffmpeg.kill('SIGTERM');
             usingFallback = true;
             
             // Rebuild with fallback encoder
             const fallbackArgs = [
+                '-hwaccel', 'auto',
+                '-probesize', '10000000',
+                '-analyzeduration', '10000000',
                 '-i', inputUrl,
                 '-c:v', encoder.fallback.video,
-                '-preset', encoder.fallback.preset,
                 ...encoder.fallback.extraArgs,
                 '-s', `${profileConfig.width}x${profileConfig.height}`,
+                '-r', profileConfig.fps || 25,
                 '-b:v', profileConfig.bitrate,
                 '-c:a', 'aac',
-                '-b:a', '128k',
+                '-b:a', profileConfig.audioBitrate || '128k',
                 '-f', 'hls',
                 '-hls_time', config.streaming.hlsSegmentTime,
                 '-hls_list_size', config.streaming.hlsListSize,
@@ -2195,7 +2224,7 @@ app.post('/api/kernel/reboot', async (req, res) => {
                     console.error('Reboot error:', error);
                 }
             });
-               }, 2000);
+                       }, 2000);
         
     } catch (error) {
         console.error('Error initiating reboot:', error);
@@ -2240,6 +2269,54 @@ app.post('/api/kernel/command', async (req, res) => {
         
     } catch (error) {
         console.error('Error executing kernel command:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// System Update API endpoint
+app.post('/api/update-system', async (req, res) => {
+    try {
+        res.json({ success: true, message: 'System update started' });
+        
+        // Execute update script
+        const updateProcess = spawn('./update.sh', [], {
+            cwd: __dirname,
+            stdio: 'pipe'
+        });
+        
+        updateProcess.stdout.on('data', (data) => {
+            console.log('Update output:', data.toString());
+            io.emit('updateProgress', {
+                message: data.toString().trim(),
+                progress: 50
+            });
+        });
+        
+        updateProcess.stderr.on('data', (data) => {
+            console.error('Update error:', data.toString());
+            io.emit('updateProgress', {
+                message: data.toString().trim(),
+                isError: true
+            });
+        });
+        
+        updateProcess.on('close', (code) => {
+            if (code === 0) {
+                console.log('System update completed successfully');
+                io.emit('updateComplete', { 
+                    success: true, 
+                    message: 'System updated successfully. Please refresh the page.' 
+                });
+            } else {
+                console.error(`Update failed with code ${code}`);
+                io.emit('updateError', { 
+                    error: `Update failed with exit code ${code}` 
+                });
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error starting system update:', error);
         res.status(500).json({ error: error.message });
     }
 });

@@ -457,6 +457,9 @@
                     <p class="mb-0">GPU Accelerated Transcoding Platform</p>
                 </div>
                 <div class="download-options">
+                    <button class="btn btn-success btn-sm me-2" id="updateSystem">
+                        <i class="fas fa-sync-alt"></i> Update System
+                    </button>
                     <button class="btn btn-outline-light btn-sm me-2" id="downloadChannelList">
                         <i class="fas fa-download"></i> Download Channel List
                     </button>
@@ -1193,286 +1196,44 @@
             }
         }
 
-        // Search functionality
-        searchInput.addEventListener('input', (e) => {
-            const searchTerm = e.target.value.toLowerCase();
-            
-            if (searchTerm === '') {
-                renderChannels();
-            } else {
-                const filteredChannels = channels.filter(channel => 
-                    channel.name.toLowerCase().includes(searchTerm) ||
-                    channel.group.toLowerCase().includes(searchTerm)
-                );
-                renderChannels(filteredChannels);
+        // Update system from GitHub
+        async function updateSystem() {
+            if (!confirm('Da li želiš ažurirati sistem sa najnovijim promenama sa GitHub-a? Ovo može uzeti nekoliko minuta.')) {
+                return;
             }
-        });
-        
-        // Event listeners
-        refreshBtn.addEventListener('click', refreshPlaylist);
-        document.getElementById('start-all-btn').addEventListener('click', startAllStreams);
-        document.getElementById('stop-all-btn').addEventListener('click', stopAllStreams);
-        
-        // Initialize
-        Promise.all([
-            fetchProfiles(),
-            fetchGPUInfo(),
-            fetchChannels()
-        ]).then(() => {
-            console.log('Initialization complete');
-            startAutoRefresh();
-        });
-        
-        async function startUdp(channelId) {
-            const profileSelect = document.getElementById(`profile-${channelId}`);
-            const gpuSelect = document.getElementById(`gpu-${channelId}`);
             
-            const profile = profileSelect ? profileSelect.value : 'passthrough';
-            const gpu = gpuSelect ? gpuSelect.value : 'auto';
+            const updateBtn = document.getElementById('updateSystem');
+            const originalText = updateBtn.innerHTML;
+            
+            updateBtn.disabled = true;
+            updateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Ažuriranje...';
             
             try {
-                const response = await fetch(`/api/start-udp/${channelId}`, {
+                const response = await fetch('/api/update-system', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ profile, gpu })
+                    headers: { 'Content-Type': 'application/json' }
                 });
                 
-                const result = await response.json();
+                const data = await response.json();
                 
-                if (response.ok) {
-                    showNotification(`UDP stream pokrenut za kanal ${channelId} (${profile}, ${gpu})`, 'success');
-                    showNotification(`UDP URL: ${result.simpleUdpUrl || result.udpUrl}`, 'info');
-                    
-                    // Socket.io will handle UI updates via channelsUpdated event
-                } else {
-                    throw new Error(result.error);
-                }
-            } catch (error) {
-                showNotification(`Greška pokretanja UDP: ${error.message}`, 'error');
-            }
-        }
-        
-        async function stopUdp(channelId) {
-            try {
-                const response = await fetch(`/api/stop-udp/${channelId}`, {
-                    method: 'POST'
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    showNotification(`UDP stream zaustavljen za kanal ${channelId}`, 'success');
-                    
-                    // Socket.io will handle UI updates via channelsUpdated event
-                } else {
-                    throw new Error(result.error);
-                }
-            } catch (error) {
-                showNotification(`Greška zaustavljanja UDP: ${error.message}`, 'error');
-            }
-        }
-        
-        function copyToClipboard(text) {
-            if (!text) return;
-            
-            navigator.clipboard.writeText(text)
-                .then(() => {
-                    showNotification('Link kopiran u clipboard', 'success');
-                })
-                .catch(err => {
-                    showNotification('Nije moguće kopirati: ' + err, 'error');
-                });
-        }
-        
-        function copyUdpUrl(url) {
-            if (!url) return;
-            
-            navigator.clipboard.writeText(url)
-                .then(() => {
-                    showNotification('UDP URL kopiran u clipboard', 'success');
-                })
-                .catch(err => {
-                    showNotification('Nije moguće kopirati: ' + err, 'error');
-                });
-        }
-        
-        function openInVlc(url) {
-            if (!url) return;
-            
-            console.log('Opening in VLC:', url);
-            
-            // Make sure URL is correct format
-            if (url.startsWith('/')) {
-                url = `http://${window.location.hostname}:${serverConfig.streaming.port}${url}`;
-            }
-            
-            fetch(`/api/open-vlc?url=${encodeURIComponent(url)}`, {
-                method: 'GET'
-            })
-            .then(response => response.json())
-            .then(data => {
                 if (data.success) {
-                    showNotification('Stream otvoren u VLC playeru', 'success');
+                    alert('Sistem je uspešno ažuriran! Stranica će se osvežiti.');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
                 } else {
-                    throw new Error(data.error || 'Nepoznata greška');
-                }
-            })
-            .catch(error => {
-                showNotification(`Greška otvaranja VLC: ${error.message}`, 'error');
-                console.error('VLC error:', error);
-            });
-        }
-        
-        function startAutoRefresh() {
-            // Auto-refresh disabled to prevent UI interference during user interactions
-            console.log('Auto-refresh disabled to improve user experience');
-            showNotification('Auto-refresh isključen za bolju kontrolu', 'info');
-        }
-        
-        function showNotification(message, type = 'info') {
-            // Simple notification system - can be enhanced with toast library
-            const alertClass = type === 'success' ? 'alert-success' : 
-                              type === 'error' ? 'alert-danger' : 
-                              type === 'warning' ? 'alert-warning' : 
-                              'alert-info';
-            
-            const notification = document.createElement('div');
-            notification.className = `alert ${alertClass} alert-dismissible fade show`;
-            notification.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; max-width: 400px;';
-            notification.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            
-            document.body.appendChild(notification);
-            
-            // Auto-remove after 5 seconds
-            setTimeout(() => {
-                if (notification.parentElement) {
-                    notification.remove();
-                }
-            }, 5000);
-        }
-        
-        function updateProgressNotification(data) {
-            // Simple progress notification for transcoding
-            console.log('Progress:', data);
-        }
-        
-        function stopAutoRefresh() {
-            clearInterval(autoRefreshInterval);
-            autoRefreshInterval = null;
-            showNotification('Auto-osvježavanje isključeno', 'info');
-        }
-        
-        function manualRefreshChannels() {
-            console.log('Manual refresh triggered');
-            renderChannels();
-            updateStats();
-            showNotification('Kanali osveženi', 'info');
-        }
-        
-        // Function to check if a stream is available
-        async function checkStreamAvailability(url) {
-            try {
-                const response = await fetch(url, { method: 'HEAD' });
-                return response.ok;
-            } catch (error) {
-                console.error('Error checking stream:', error);
-                return false;
-            }
-        }
-        
-        // Fetch server configuration
-        async function fetchServerConfig() {
-            try {
-                const response = await fetch('/api/server-config');
-                if (response.ok) {
-                    serverConfig = await response.json();
-                    console.log('Server config loaded:', serverConfig);
-                    
-                    // Ensure config is properly structured and has default values
-                    if (!serverConfig.tvheadend || !serverConfig.tvheadend.host) {
-                        serverConfig.tvheadend = { host: '192.168.100.3' };
-                    }
-                    if (!serverConfig.streaming || !serverConfig.streaming.port) {
-                        serverConfig.streaming = { port: 8081 };
-                    }
-                    
-                    // Force refresh channels to apply config
-                    renderChannels();
-                } else {
-                    console.error('Failed to load server config');
-                    // Set defaults if config loading fails
-                    serverConfig = {
-                        tvheadend: { host: '192.168.100.3' },
-                        streaming: { port: 8081 }
-                    };
+                    alert('Greška pri ažuriranju: ' + (data.error || 'Nepoznata greška'));
                 }
             } catch (error) {
-                console.error('Error fetching server config:', error);
-                // Set defaults if config loading fails
-                serverConfig = {
-                    tvheadend: { host: '192.168.100.3' },
-                    streaming: { port: 8081 }
-                };
+                alert('Greška pri ažuriranju: ' + error.message);
+            } finally {
+                updateBtn.disabled = false;
+                updateBtn.innerHTML = originalText;
             }
-        }
-        
-        // Download functionality
-        function downloadChannelList() {
-            const channelData = channels.map(channel => ({
-                id: channel.id,
-                channelNumber: channel.channelNumber,
-                name: channel.name,
-                group: channel.group,
-                url: channel.url,
-                channelNumberUrl: channel.channelNumberUrl
-            }));
-            
-            const dataStr = JSON.stringify(channelData, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(dataBlob);
-            
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `tvheadend-channels-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        }
-        
-        function downloadActiveStreams() {
-            const activeChannels = channels.filter(channel => channel.isActive || channel.transcoding || channel.udpStreaming);
-            const streamData = activeChannels.map(channel => ({
-                id: channel.id,
-                channelNumber: channel.channelNumber,
-                name: channel.name,
-                profile: channel.profile,
-                gpu: channel.gpu,
-                transcoding: channel.transcoding,
-                passthrough: channel.passthrough,
-                udpStreaming: channel.udpStreaming,
-                udpUrl: channel.udpUrl,
-                bandwidth: channel.bandwidth,
-                totalData: channel.totalData
-            }));
-            
-            const dataStr = JSON.stringify(streamData, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(dataBlob);
-            
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `active-streams-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
         }
         
         // Bind download events
+        document.getElementById('updateSystem').addEventListener('click', updateSystem);
         document.getElementById('downloadChannelList').addEventListener('click', downloadChannelList);
         document.getElementById('downloadActiveStreams').addEventListener('click', downloadActiveStreams);
         

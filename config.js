@@ -100,6 +100,7 @@ module.exports = {
                 fps: 30
             },
             'hevc_low': {
+                description: 'HEVC Low quality - efficient compression (400kbps)',
                 width: 640,
                 height: 480,
                 bitrate: '400k',
@@ -108,6 +109,7 @@ module.exports = {
                 codec: 'hevc'
             },
             'hevc_medium': {
+                description: 'HEVC Medium quality - balanced compression (1.2Mbps)',
                 width: 1280,
                 height: 720,
                 bitrate: '1200k',
@@ -116,10 +118,29 @@ module.exports = {
                 codec: 'hevc'
             },
             'hevc_high': {
+                description: 'HEVC High quality - excellent compression (2.5Mbps)',
                 width: 1920,
                 height: 1080,
                 bitrate: '2500k',
                 audioBitrate: '192k',
+                fps: 30,
+                codec: 'hevc'
+            },
+            'hevc_fhd_compressed': {
+                description: 'HEVC FHD Highly Compressed - 10Mbps to ~3Mbps',
+                width: 1920,
+                height: 1080,
+                bitrate: '3000k',
+                audioBitrate: '192k',
+                fps: 30,
+                codec: 'hevc'
+            },
+            'hevc_4k_compressed': {
+                description: 'HEVC 4K Compressed - suitable for high bitrate sources',
+                width: 3840,
+                height: 2160,
+                bitrate: '8000k',
+                audioBitrate: '256k',
                 fps: 30,
                 codec: 'hevc'
             }
@@ -144,6 +165,19 @@ module.exports = {
                     '-profile:v', 'high'
                 ]
             },
+            amd_hevc: {
+                encoder: 'hevc_amf', // AMD HEVC encoder
+                preset: 'quality',
+                extraArgs: [
+                    '-usage', 'transcoding',
+                    '-quality', 'quality',
+                    '-rc', 'cqp',
+                    '-qp_i', '28',
+                    '-qp_p', '30',
+                    '-profile:v', 'main',
+                    '-tier', 'main'
+                ]
+            },
             intel: {
                 encoder: 'h264_qsv',
                 preset: 'fast',
@@ -153,6 +187,11 @@ module.exports = {
                 encoder: 'libx264',
                 preset: 'fast',
                 extraArgs: ['-threads', '0']
+            },
+            cpu_hevc: {
+                encoder: 'libx265',
+                preset: 'medium',
+                extraArgs: ['-threads', '0', '-crf', '28']
             }
         }
     },
