@@ -2059,3 +2059,6 @@ process.on('SIGTERM', () => {
     });
 });
 
+// Start the server
+initializeServer();
+
