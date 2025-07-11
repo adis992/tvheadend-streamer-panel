@@ -1,4 +1,45 @@
 const express = require('express');
+
+// Helper: Save active streams to file
+function saveActiveStreamsToFile() {
+    const active = [];
+    for (const [channelId, stream] of activeStreams) {
+        active.push({
+            type: 'hls',
+            channelId,
+            profile: stream.profile,
+            gpu: stream.gpu
+        });
+    }
+    for (const [channelId, stream] of activeUdpStreams) {
+        active.push({
+            type: 'udp',
+            channelId,
+            profile: stream.profile,
+            gpu: stream.gpu,
+            ip: stream.udpUrl ? stream.udpUrl.split('@')[1].split(':')[0] : undefined,
+            port: stream.udpUrl ? parseInt(stream.udpUrl.split(':')[2]) : undefined
+        });
+    }
+    fs.writeJsonSync(ACTIVE_STREAMS_FILE, active, { spaces: 2 });
+}
+
+// Helper: Restore active streams from file
+async function restoreActiveStreamsFromFile() {
+    if (!fs.existsSync(ACTIVE_STREAMS_FILE)) return;
+    try {
+        const active = await fs.readJson(ACTIVE_STREAMS_FILE);
+        for (const entry of active) {
+            if (entry.type === 'hls') {
+                await startTranscoding(entry.channelId, entry.profile, entry.gpu);
+            } else if (entry.type === 'udp') {
+                await startUdpStream(entry.channelId, entry.profile, entry.gpu, { ip: entry.ip, port: entry.port });
+            }
+        }
+    } catch (err) {
+        console.error('Failed to restore active streams:', err);
+    }
+}
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
@@ -7,6 +48,50 @@ const bodyParser = require('body-parser');
 const fs = require('fs-extra');
 const { spawn, exec } = require('child_process');
 const fetch = require('node-fetch');
+
+const ACTIVE_STREAMS_FILE = path.join(__dirname, 'active-streams.json');
+
+
+// Helper: Save active streams to file
+function saveActiveStreamsToFile() {
+    const active = [];
+    for (const [channelId, stream] of activeStreams) {
+        active.push({
+            type: 'hls',
+            channelId,
+            profile: stream.profile,
+            gpu: stream.gpu
+        });
+    }
+    for (const [channelId, stream] of activeUdpStreams) {
+        active.push({
+            type: 'udp',
+            channelId,
+            profile: stream.profile,
+            gpu: stream.gpu,
+            ip: stream.udpUrl ? stream.udpUrl.split('@')[1].split(':')[0] : undefined,
+            port: stream.udpUrl ? parseInt(stream.udpUrl.split(':')[2]) : undefined
+        });
+    }
+    fs.writeJsonSync(ACTIVE_STREAMS_FILE, active, { spaces: 2 });
+}
+
+// Helper: Restore active streams from file
+async function restoreActiveStreamsFromFile() {
+    if (!fs.existsSync(ACTIVE_STREAMS_FILE)) return;
+    try {
+        const active = await fs.readJson(ACTIVE_STREAMS_FILE);
+        for (const entry of active) {
+            if (entry.type === 'hls') {
+                await startTranscoding(entry.channelId, entry.profile, entry.gpu);
+            } else if (entry.type === 'udp') {
+                await startUdpStream(entry.channelId, entry.profile, entry.gpu, { ip: entry.ip, port: entry.port });
+            }
+        }
+    } catch (err) {
+        console.error('Failed to restore active streams:', err);
+    }
+}
 
 // Import configuration
 const config = require('./config');

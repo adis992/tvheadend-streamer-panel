@@ -1,2 +1,16 @@
-[]
-
+[
+  {
+    "type": "hls",
+    "channelId": "1",
+    "profile": "passthrough",
+    "gpu": "amd"
+  },
+  {
+    "type": "udp",
+    "channelId": "1",
+    "profile": "passthrough",
+    "gpu": "cpu",
+    "ip": "239.255.0.1",
+    "port": 1234
+  }
+]
