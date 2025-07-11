@@ -35,7 +35,7 @@ RUN npm install --only=production
 # Copy application files
 COPY . .
 
-# Create necessary directories
+# Create necessary directories (important: 'streams' directory must have the 's' at the end)
 RUN mkdir -p streams logs && \
     chown -R node:node streams logs
 

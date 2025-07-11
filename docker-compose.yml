@@ -9,6 +9,7 @@ services:
       - "3000:3000"
       - "8080:8080"
     volumes:
+      # Important: The 'streams' directory name must have the 's' at the end
       - ./streams:/usr/src/app/streams
       - ./logs:/usr/src/app/logs
       - ./config:/usr/src/app/config

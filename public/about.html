@@ -403,6 +403,7 @@
         
         function renderStats(channels, profiles) {
             const activeChannels = channels.filter(c => c.status === 'streaming' || c.status === 'transcoding').length;
+            const profileCount = profiles && profiles.profiles ? Object.keys(profiles.profiles).length : 0;
             
             const html = `
                 <div class="row text-center">
@@ -420,8 +421,8 @@
                     </div>
                     <div class="col-6">
                         <div class="mb-3">
-                            <h4 class="text-info">${profiles.length}</h4>
-                            <small class="text-muted">Profiles</small>
+                            <h4 class="text-info">${profileCount}</h4>
+                            <small class="text-muted">Available Profiles</small>
                         </div>
                     </div>
                     <div class="col-6">

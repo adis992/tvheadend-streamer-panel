@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kernel Management - TVHeadend Streamer</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+        }
+        
+        .sidebar {
+            width: 250px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 20px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .sidebar-brand {
+            text-align: center;
+            padding: 0 20px 30px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .sidebar-brand h4 {
+            margin: 0;
+            font-weight: bold;
+        }
+        
+        .nav-item {
+            margin: 5px 15px;
+        }
+        
+        .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            padding: 12px 15px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link:hover, .nav-link.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            transform: translateX(5px);
+        }
+        
+        .nav-link i {
+            width: 20px;
+            margin-right: 10px;
+        }
+        
+        .main-content {
+            margin-left: 250px;
+            flex: 1;
+            padding: 30px;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            color: white;
+            margin-bottom: 20px;
+        }
+        
+        .card-header {
+            background: rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px 15px 0 0 !important;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(45deg, #f093fb, #f5576c);
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 500;
+            color: white;
+        }
+        
+        .btn-success {
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 500;
+            color: white;
+        }
+        
+        .terminal {
+            background: #1e1e1e;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 15px;
+            border-radius: 8px;
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .log-output {
+            background: #2d3142;
+            color: #bfc7d8;
+            font-family: 'Courier New', monospace;
+            padding: 15px;
+            border-radius: 8px;
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            white-space: pre-wrap;
+        }
+        
+        .kernel-status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .current-kernel {
+            background: rgba(40, 167, 69, 0.2);
+            border: 1px solid rgba(40, 167, 69, 0.5);
+        }
+        
+        .available-kernels {
+            background: rgba(0, 123, 255, 0.2);
+            border: 1px solid rgba(0, 123, 255, 0.5);
+        }
+        
+        .kernel-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        
+        .progress {
+            height: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+        
+        .progress-bar {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <h4><i class="fas fa-broadcast-tower"></i> TVHeadend</h4>
+        </div>
+        
+        <nav class="nav flex-column">
+            <div class="nav-item">
+                <a class="nav-link" href="index.html">
+                    <i class="fas fa-home"></i> Home
+                </a>
+            </div>
+            <div class="nav-item">
+                <a class="nav-link" href="settings.html">
+                    <i class="fas fa-cog"></i> Settings
+                </a>
+            </div>
+            <div class="nav-item">
+                <a class="nav-link" href="installation.html">
+                    <i class="fas fa-download"></i> Installation
+                </a>
+            </div>
+            <div class="nav-item">
+                <a class="nav-link active" href="kernel.html">
+                    <i class="fas fa-microchip"></i> Kernel
+                </a>
+            </div>
+            <div class="nav-item">
+                <a class="nav-link" href="about.html">
+                    <i class="fas fa-info-circle"></i> About
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-microchip"></i> Kernel Management</h1>
+            <p class="mb-0">Install and manage Linux kernel versions</p>
+        </div>
+        
+        <div class="row">
+            <!-- Current Kernel Info -->
+            <div class="col-lg-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-info-circle"></i> Current Kernel</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="kernel-status current-kernel">
+                            <strong>Running Kernel:</strong>
+                            <div id="current-kernel">Checking...</div>
+                        </div>
+                        <button class="btn btn-primary" onclick="checkCurrentKernel()">
+                            <i class="fas fa-refresh"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Available Kernels -->
+            <div class="col-lg-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-list"></i> Installed Kernels</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="kernel-status available-kernels">
+                            <strong>Available Kernels:</strong>
+                            <div class="kernel-list" id="available-kernels">Checking...</div>
+                        </div>
+                        <button class="btn btn-primary" onclick="listKernels()">
+                            <i class="fas fa-search"></i> Scan
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Kernel Installation -->
+        <div class="row">
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-download"></i> Install Kernel 5.4.230</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            This will install Linux kernel 5.4.230 for better hardware compatibility. The process includes downloading kernel packages and updating GRUB.
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-lg-6">
+                                <h6>Installation Steps:</h6>
+                                <ol>
+                                    <li>Download kernel packages</li>
+                                    <li>Install kernel packages</li>
+                                    <li>Update GRUB configuration</li>
+                                    <li>Set as default kernel</li>
+                                    <li>Optional: Reboot system</li>
+                                </ol>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-success btn-lg" onclick="installKernel()" id="install-btn">
+                                        <i class="fas fa-download"></i> Install Kernel 5.4.230
+                                    </button>
+                                    <button class="btn btn-warning" onclick="setDefaultKernel()" id="default-btn" style="display: none;">
+                                        <i class="fas fa-cog"></i> Set as Default
+                                    </button>
+                                    <button class="btn btn-danger" onclick="rebootSystem()" id="reboot-btn" style="display: none;">
+                                        <i class="fas fa-power-off"></i> Reboot System
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Progress Bar -->
+                        <div class="mt-3" id="progress-container" style="display: none;">
+                            <div class="progress">
+                                <div class="progress-bar" role="progressbar" id="progress-bar" style="width: 0%"></div>
+                            </div>
+                            <div class="mt-2 text-center" id="progress-text">Starting...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Terminal -->
+        <div class="row">
+            <div class="col-lg-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-terminal"></i> Manual Terminal</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" id="terminal-input" placeholder="Enter command...">
+                            <button class="btn btn-primary" onclick="runCommand()">
+                                <i class="fas fa-play"></i> Run
+                            </button>
+                        </div>
+                        <div class="terminal" id="terminal-output">
+                            Welcome to Kernel Management Terminal
+                            Type commands to execute them manually.
+                            
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Installation Log -->
+            <div class="col-lg-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-file-alt"></i> Installation Log</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="log-output" id="install-log">
+                            Kernel installation log will appear here...
+                            
+                        </div>
+                        <button class="btn btn-secondary btn-sm mt-2" onclick="clearLog()">
+                            <i class="fas fa-trash"></i> Clear Log
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        let installationInProgress = false;
+        
+        // Check current kernel
+        async function checkCurrentKernel() {
+            try {
+                const response = await fetch('/api/kernel/current');
+                const data = await response.json();
+                document.getElementById('current-kernel').textContent = data.kernel || 'Unknown';
+            } catch (error) {
+                document.getElementById('current-kernel').textContent = 'Error: ' + error.message;
+            }
+        }
+        
+        // List available kernels
+        async function listKernels() {
+            try {
+                const response = await fetch('/api/kernel/list');
+                const data = await response.json();
+                const kernelList = document.getElementById('available-kernels');
+                
+                if (data.kernels && data.kernels.length > 0) {
+                    kernelList.innerHTML = data.kernels.map((kernel, index) => 
+                        `<div>${index}: ${kernel}</div>`
+                    ).join('');
+                } else {
+                    kernelList.textContent = 'No kernels found';
+                }
+            } catch (error) {
+                document.getElementById('available-kernels').textContent = 'Error: ' + error.message;
+            }
+        }
+        
+        // Install kernel
+        async function installKernel() {
+            if (installationInProgress) return;
+            
+            if (!confirm('Are you sure you want to install kernel 5.4.230? This process may take several minutes.')) {
+                return;
+            }
+            
+            installationInProgress = true;
+            const installBtn = document.getElementById('install-btn');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            const installLog = document.getElementById('install-log');
+            
+            installBtn.disabled = true;
+            installBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Installing...';
+            progressContainer.style.display = 'block';
+            
+            try {
+                // Clear log
+                installLog.textContent = 'Starting kernel installation...\n';
+                
+                // Start installation
+                const response = await fetch('/api/kernel/install', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ version: '5.4.230' })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Installation failed');
+                }
+                
+                // Monitor installation progress
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.trim()) {
+                            try {
+                                const data = JSON.parse(line);
+                                
+                                if (data.progress) {
+                                    progressBar.style.width = data.progress + '%';
+                                    progressText.textContent = data.message || 'Installing...';
+                                }
+                                
+                                if (data.log) {
+                                    installLog.textContent += data.log + '\n';
+                                    installLog.scrollTop = installLog.scrollHeight;
+                                }
+                                
+                                if (data.completed) {
+                                    progressBar.style.width = '100%';
+                                    progressText.textContent = 'Installation completed!';
+                                    document.getElementById('default-btn').style.display = 'block';
+                                    document.getElementById('reboot-btn').style.display = 'block';
+                                }
+                            } catch (e) {
+                                // Non-JSON line, treat as log
+                                installLog.textContent += line + '\n';
+                                installLog.scrollTop = installLog.scrollHeight;
+                            }
+                        }
+                    }
+                }
+                
+            } catch (error) {
+                installLog.textContent += 'Error: ' + error.message + '\n';
+                progressText.textContent = 'Installation failed!';
+            } finally {
+                installationInProgress = false;
+                installBtn.disabled = false;
+                installBtn.innerHTML = '<i class="fas fa-download"></i> Install Kernel 5.4.230';
+            }
+        }
+        
+        // Set default kernel
+        async function setDefaultKernel() {
+            if (!confirm('Set kernel 5.4.230 as default? This will modify GRUB configuration.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/kernel/set-default', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ version: '5.4.230' })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    alert('Default kernel set successfully! Reboot to apply changes.');
+                } else {
+                    alert('Failed to set default kernel: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        // Reboot system
+        async function rebootSystem() {
+            if (!confirm('Are you sure you want to reboot the system now?')) {
+                return;
+            }
+            
+            try {
+                await fetch('/api/kernel/reboot', { method: 'POST' });
+                alert('System reboot initiated...');
+            } catch (error) {
+                alert('Error initiating reboot: ' + error.message);
+            }
+        }
+        
+        // Run manual command
+        async function runCommand() {
+            const input = document.getElementById('terminal-input');
+            const output = document.getElementById('terminal-output');
+            const command = input.value.trim();
+            
+            if (!command) return;
+            
+            output.textContent += `$ ${command}\n`;
+            input.value = '';
+            
+            try {
+                const response = await fetch('/api/kernel/command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command })
+                });
+                
+                const data = await response.json();
+                output.textContent += (data.output || data.error || 'Command executed') + '\n';
+            } catch (error) {
+                output.textContent += 'Error: ' + error.message + '\n';
+            }
+            
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        // Clear log
+        function clearLog() {
+            document.getElementById('install-log').textContent = '';
+        }
+        
+        // Enter key support for terminal
+        document.getElementById('terminal-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                runCommand();
+            }
+        });
+        
+        // Load initial data
+        checkCurrentKernel();
+        listKernels();
+    </script>
+</body>
+</html>

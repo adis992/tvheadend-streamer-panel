@@ -461,59 +461,28 @@ function parseM3U(content) {
             const nameMatch = info.match(/,(.+)$/);
             const logoMatch = info.match(/tvg-logo="([^"]+)"/);
             const groupMatch = info.match(/group-title="([^"]+)"/);
-            const chnoMatch = info.match(/tvg-chno="([^"]+)"/);
-            
-            // ALWAYS use tvg-chno as the primary channel ID
-            const channelNumber = chnoMatch ? parseInt(chnoMatch[1]) : null;
-            
-            if (!channelNumber) {
-                console.warn(`Skipping channel without tvg-chno: ${nameMatch ? nameMatch[1] : 'Unknown'}`);
-                continue; // Skip channels without channel numbers
-            }
             
             currentChannel = {
-                id: channelNumber, // Use channel number as primary ID
-                channelNumber: channelNumber,
+                id: Date.now() + Math.random(),
                 name: nameMatch ? nameMatch[1] : 'Unknown Channel',
                 logo: logoMatch ? logoMatch[1] : '',
                 group: groupMatch ? groupMatch[1] : 'Uncategorized',
                 url: '',
                 isActive: false,
                 transcoding: false,
-                passthrough: false,
                 udpStreaming: false,
                 udpUrl: null,
-                profile: 'passthrough',
-                bandwidth: 0,
-                totalData: 0
+                profile: 'medium',
+                bandwidth: 0, // MB/s
+                totalData: 0 // Total MB transferred
             };
-            
-            console.log(`Parsed channel ${channelNumber}: ${currentChannel.name}`);
         } else if (line && !line.startsWith('#') && currentChannel.name) {
-            // ALWAYS replace channelid with channelnumber in the URL
-            if (currentChannel.channelNumber && line.includes('/stream/channelid/')) {
-                // Extract the base URL and profile parameters
-                const baseUrl = line.split('/stream/channelid/')[0];
-                const urlParts = line.split('?');
-                const profilePart = urlParts.length > 1 ? `?${urlParts[1]}` : '?profile=pass';
-                
-                // Build the correct channelnumber URL
-                currentChannel.url = `${baseUrl}/stream/channelnumber/${currentChannel.channelNumber}${profilePart}`;
-                console.log(`🔄 Replaced channelid with channelnumber: ${currentChannel.url}`);
-            } else {
-                // Keep original URL if no channelid found
-                currentChannel.url = line;
-            }
-            
-            // For backwards compatibility, also store as channelNumberUrl
-            currentChannel.channelNumberUrl = currentChannel.url;
-            
+            currentChannel.url = line;
             channels.push({ ...currentChannel });
             currentChannel = {};
         }
     }
     
-    console.log(`Parsed ${channels.length} channels with valid channel numbers from TVHeadend playlist`);
     return channels;
 }
 
@@ -813,15 +782,17 @@ function getFFmpegEncoder(gpu, codec = 'h264') {
 
 // Start transcoding stream
 async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto') {
-    console.log('Starting transcoding for channel:', channelId, 'profile:', profile, 'gpu:', gpu);
-    
-    // Find channel by ID (now using channel numbers as IDs)
-    const channel = channels.find(c => c.id == channelId);
-    if (!channel) {
-        throw new Error(`Channel not found with ID: ${channelId}`);
+    console.log('Looking for channel with ID:', channelId, 'type:', typeof channelId);
+    console.log('Available channels count:', channels.length);
+    if (channels.length > 0) {
+        console.log('First channel ID:', channels[0].id, 'type:', typeof channels[0].id);
     }
     
-    console.log(`Found channel: ${channel.name} (Number: ${channel.channelNumber})`);
+    // Convert channelId to match the type used in channels array
+    const searchId = typeof channelId === 'string' ? parseFloat(channelId) : channelId;
+    
+    const channel = channels.find(c => c.id === searchId);
+    if (!channel) throw new Error('Channel not found');
     
     // Stop existing stream if running
     if (activeStreams.has(channelId)) {
@@ -835,92 +806,50 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
     }
     
     const profileConfig = config.transcoding.profiles[profile];
-    if (!profileConfig) {
-        throw new Error(`Profile not found: ${profile}`);
-    }
     
-    // Check if using passthrough profile FIRST (no FFmpeg, no directories)
-    if (profileConfig.passthrough) {
-        console.log('Using passthrough mode - direct stream');
-        
-        // Use channelNumberUrl if available
-        let passthroughUrl = channel.channelNumberUrl || channel.url;
-        console.log(`Passthrough URL: ${passthroughUrl}`);
-        
-        // Update channel status
-        const channelIndex = channels.findIndex(c => c.id == channelId);
-        if (channelIndex !== -1) {
-            channels[channelIndex].isActive = true;
-            channels[channelIndex].transcoding = false;
-            channels[channelIndex].passthrough = true;
-            channels[channelIndex].profile = profile;
-            channels[channelIndex].gpu = selectedGPU;
-        }
-        
-        // Store passthrough stream info (no FFmpeg process)
-        activeStreams.set(channelId, {
-            process: null, // No FFmpeg for passthrough
-            profile,
-            gpu: selectedGPU,
-            startTime: Date.now(),
-            outputPath: null, // No output files for passthrough
-            passthrough: true,
-            originalUrl: passthroughUrl,
-            channelNumber: channel.channelNumber
-        });
-        
-        io.emit('streamStarted', { channelId, profile, gpu: selectedGPU, passthrough: true });
-        io.emit('channelsUpdated', channels);
-        
-        return {
-            channelId,
-            streamUrl: passthroughUrl,
-            channelNumber: channel.channelNumber,
-            profile,
-            gpu: selectedGPU,
-            passthrough: true
-        };
-    }
-    
-    // TRANSCODING MODE - create output directory and FFmpeg process
+    // Create output directory
     const outputDir = path.join(config.streaming.outputDir, channelId.toString());
     await fs.ensureDir(outputDir);
     
-    // Use channelNumberUrl if available, otherwise use original URL
-    const inputUrl = channel.channelNumberUrl || channel.url;
-    console.log(`Transcoding input URL: ${inputUrl}`);
-    
-    // Get appropriate encoder based on profile and GPU - DECLARE PROPERLY
-    const encoder = getFFmpegEncoder(selectedGPU, profileConfig.codec);
-    
-    // Build FFmpeg command for transcoding
-    const ffmpegArgs = [
-        // Pre-input options for hardware acceleration
-        '-hwaccel', 'auto',
-        '-probesize', '10000000',
-        '-analyzeduration', '10000000',
-        
-        // Input
-        '-i', inputUrl,
-        
-        // Video encoding
-        '-c:v', encoder.video,
-        '-preset', encoder.preset,
-        '-b:v', profileConfig.bitrate,
-        '-s', `${profileConfig.width}x${profileConfig.height}`,
-        
-        // Audio
-        '-c:a', 'aac',
-        '-b:a', profileConfig.audioBitrate || '128k',
-        
-        // Output
-        '-f', 'hls',
-        '-hls_time', config.streaming.hlsSegmentTime,
-        '-hls_list_size', config.streaming.hlsListSize,
-        '-hls_flags', 'delete_segments',
-        '-hls_segment_filename', path.join(outputDir, 'segment_%03d.ts'),
-        path.join(outputDir, 'playlist.m3u8')
+    // Build FFmpeg command
+    let ffmpegArgs = [
+        '-i', channel.url,
     ];
+    
+    // Check if using passthrough profile
+    if (profileConfig.passthrough) {
+        // For passthrough, just copy the streams without transcoding
+        ffmpegArgs = ffmpegArgs.concat([
+            '-c', 'copy',
+            '-f', 'hls',
+            '-hls_time', config.streaming.hlsSegmentTime,
+            '-hls_list_size', config.streaming.hlsListSize,
+            '-hls_flags', 'delete_segments',
+            '-hls_segment_filename', path.join(outputDir, 'segment_%03d.ts'),
+            path.join(outputDir, 'playlist.m3u8')
+        ]);
+        console.log('Using passthrough mode (no transcoding)');
+    } else {
+        // Get appropriate encoder based on profile and GPU
+        const encoder = getFFmpegEncoder(selectedGPU, profileConfig.codec);
+        
+        // For regular transcoding
+        ffmpegArgs = ffmpegArgs.concat([
+            '-c:v', encoder.video,
+            '-preset', encoder.preset,
+            ...encoder.extraArgs,
+            '-s', `${profileConfig.width}x${profileConfig.height}`,
+            '-b:v', profileConfig.bitrate,
+            '-c:a', 'aac',
+            '-b:a', profileConfig.audioBitrate || '128k',
+            '-f', 'hls',
+            '-hls_time', config.streaming.hlsSegmentTime,
+            '-hls_list_size', config.streaming.hlsListSize,
+            '-hls_flags', 'delete_segments',
+            '-hls_segment_filename', path.join(outputDir, 'segment_%03d.ts'),
+            path.join(outputDir, 'playlist.m3u8')
+        ]);
+    }
     
     console.log('Starting FFmpeg with args:', ffmpegArgs);
     console.log(`Using encoder: ${encoder.video} (GPU: ${selectedGPU})`);
@@ -928,20 +857,21 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
     let ffmpeg = spawn('ffmpeg', ffmpegArgs);
     let usingFallback = false;
     
-    // Handle FFmpeg events
+    // Handle encoder fallback for older AMD GPUs
     ffmpeg.stderr.on('data', (data) => {
         const output = data.toString();
         
-        // Check for encoder fallback
+        // Check for h264_amf not available error (common on RX580)
         if (output.includes('h264_amf') && output.includes('not found') && encoder.fallback && !usingFallback) {
-            console.warn('AMD encoder not available, falling back to software encoding');
+            console.warn('h264_amf encoder not available, falling back to software encoding with OpenCL optimization');
             
+            // Kill current process
             ffmpeg.kill('SIGTERM');
             usingFallback = true;
             
-            // Rebuild with fallback encoder
-            const fallbackArgs = [
-                '-i', inputUrl,
+            // Rebuild command with fallback encoder
+            ffmpegArgs = [
+                '-i', channel.url,
                 '-c:v', encoder.fallback.video,
                 '-preset', encoder.fallback.preset,
                 ...encoder.fallback.extraArgs,
@@ -957,11 +887,15 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
                 path.join(outputDir, 'playlist.m3u8')
             ];
             
-            console.log('Restarting with fallback encoder:', fallbackArgs);
-            ffmpeg = spawn('ffmpeg', fallbackArgs);
-            attachEventListeners();
+            console.log('Restarting with fallback encoder:', ffmpegArgs);
+            ffmpeg = spawn('ffmpeg', ffmpegArgs);
+            
+            // Re-attach event listeners for new process
+            attachFFmpegListeners();
             return;
         }
+        
+        console.log(`FFmpeg stderr [${channelId}]:`, output);
         
         // Emit progress updates
         if (output.includes('frame=')) {
@@ -974,23 +908,35 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
         }
     });
     
-    function attachEventListeners() {
+    function attachFFmpegListeners() {
         ffmpeg.stdout.on('data', (data) => {
             console.log(`FFmpeg stdout [${channelId}]:`, data.toString());
+        });
+        
+        ffmpeg.stderr.on('data', (data) => {
+            const output = data.toString();
+            console.log(`FFmpeg stderr [${channelId}]:`, output);
+            
+            // Emit progress updates
+            if (output.includes('frame=')) {
+                io.emit('transcodingProgress', {
+                    channelId,
+                    status: 'running',
+                    output: output,
+                    encoder: usingFallback ? encoder.fallback.video : encoder.video
+                });
+            }
         });
         
         ffmpeg.on('close', (code) => {
             console.log(`FFmpeg process [${channelId}] exited with code ${code}`);
             activeStreams.delete(channelId);
-            streamStats.delete(channelId);
             
             // Update channel status
-            const channelIndex = channels.findIndex(c => c.id == channelId);
+            const channelIndex = channels.findIndex(c => c.id === channelId);
             if (channelIndex !== -1) {
                 channels[channelIndex].isActive = false;
                 channels[channelIndex].transcoding = false;
-                channels[channelIndex].passthrough = false;
-                channels[channelIndex].bandwidth = 0;
             }
             
             io.emit('streamStopped', { channelId, code });
@@ -1003,8 +949,10 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
         });
     }
     
-    // Attach initial event listeners
-    attachEventListeners();
+    // Attach initial listeners
+    ffmpeg.stdout.on('data', (data) => {
+        console.log(`FFmpeg stdout [${channelId}]:`, data.toString());
+    });
     
     // Store stream info
     activeStreams.set(channelId, {
@@ -1013,8 +961,8 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
         gpu: selectedGPU,
         startTime: Date.now(),
         outputPath: path.join(outputDir, 'playlist.m3u8'),
-        passthrough: false,
-        channelNumber: channel.channelNumber
+        lastBandwidthCheck: Date.now(),
+        bytesTransferred: 0
     });
     
     // Initialize bandwidth monitoring
@@ -1026,51 +974,45 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
     });
     
     // Update channel status
-    const channelIndex = channels.findIndex(c => c.id == channelId);
+    const channelIndex = channels.findIndex(c => c.id === searchId);
     if (channelIndex !== -1) {
         channels[channelIndex].isActive = true;
         channels[channelIndex].transcoding = true;
-        channels[channelIndex].passthrough = false;
         channels[channelIndex].profile = profile;
         channels[channelIndex].gpu = selectedGPU;
     }
     
-    io.emit('streamStarted', { channelId, profile, gpu: selectedGPU, passthrough: false });
+    io.emit('streamStarted', { channelId, profile, gpu: selectedGPU });
     io.emit('channelsUpdated', channels);
     
     return {
-        channelId,
-        streamUrl: `/stream/${channelId}/playlist.m3u8`,
-        channelNumber: channel.channelNumber,
+        channelId: searchId,
+        streamUrl: `/stream/${searchId}/playlist.m3u8`,
         profile,
-        gpu: selectedGPU,
-        passthrough: false
+        gpu: selectedGPU
     };
 }
 
 // Stop transcoding stream
 function stopTranscoding(channelId) {
-    const stream = activeStreams.get(channelId);
+    // Convert channelId to match the type used in channels array
+    const searchId = typeof channelId === 'string' ? parseFloat(channelId) : channelId;
+    
+    const stream = activeStreams.get(searchId);
     if (stream) {
-        // Only kill FFmpeg process if it exists (not for passthrough)
-        if (stream.process) {
-            stream.process.kill('SIGTERM');
-        }
-        
-        activeStreams.delete(channelId);
-        streamStats.delete(channelId); // Remove bandwidth stats
+        stream.process.kill('SIGTERM');
+        activeStreams.delete(searchId);
+        streamStats.delete(searchId); // Remove bandwidth stats
         
         // Update channel status
-        const channelIndex = channels.findIndex(c => c.id == channelId);
+        const channelIndex = channels.findIndex(c => c.id === searchId);
         if (channelIndex !== -1) {
             channels[channelIndex].isActive = false;
             channels[channelIndex].transcoding = false;
-            channels[channelIndex].passthrough = false;
             channels[channelIndex].bandwidth = 0;
-            channels[channelIndex].totalData = 0;
         }
         
-        io.emit('streamStopped', { channelId });
+        io.emit('streamStopped', { channelId: searchId });
         io.emit('channelsUpdated', channels);
         
         return true;
@@ -1080,48 +1022,28 @@ function stopTranscoding(channelId) {
 
 // Start UDP streaming
 async function startUdpStream(channelId, profile = 'passthrough', gpu = 'auto', udpOptions = {}) {
-    console.log('Starting UDP stream for channel:', channelId);
+    console.log('Starting UDP stream for channel ID:', channelId);
     
-    const channel = channels.find(c => c.id == channelId);
+    // Convert channelId to match the type used in channels array
+    const searchId = typeof channelId === 'string' ? parseFloat(channelId) : channelId;
+    
+    const channel = channels.find(c => c.id === searchId);
     if (!channel) throw new Error('Channel not found');
     
     // Stop existing UDP stream if running
-    if (activeUdpStreams.has(channelId)) {
+    if (activeUdpStreams.has(searchId)) {
         stopUdpStream(channelId);
     }
+
     
     // Setup UDP destination options
     const udpConfig = config.streaming.udp;
     const udpIp = udpOptions.ip || udpConfig.defaultIp;
-    let udpPort = udpOptions.port || udpConfig.defaultPort;
+    const udpPort = udpOptions.port || udpConfig.defaultPort;
     
-    // Auto-increment port if starting multiple streams
-    // Check if this port is already in use by another stream
-    let portInUse = false;
-    for (const [existingChannelId, existingStream] of activeUdpStreams) {
-        if (existingChannelId !== channelId && existingStream.udpUrl && existingStream.udpUrl.includes(`:${udpPort}`)) {
-            portInUse = true;
-            break;
-        }
-    }
-    
-    // If port is in use, find next available port
-    while (portInUse) {
-        udpPort++;
-        portInUse = false;
-        for (const [existingChannelId, existingStream] of activeUdpStreams) {
-            if (existingChannelId !== channelId && existingStream.udpUrl && existingStream.udpUrl.includes(`:${udpPort}`)) {
-                portInUse = true;
-                break;
-            }
-        }
-    }
-    
-    console.log(`Using UDP port ${udpPort} for channel ${channelId}`);
-    
-    // Generate UDP URLs with @ prefix for multicast
-    const udpOutputUrl = `udp://@${udpIp}:${udpPort}?pkt_size=${udpConfig.mtu}&ttl=${udpConfig.ttl}`;
-    const simpleUdpUrl = `udp://@${udpIp}:${udpPort}/1`;
+    // Generate both a technical URL with parameters and a simple URL for VLC
+    const udpOutputUrl = `udp://${udpIp}:${udpPort}?pkt_size=${udpConfig.mtu}&ttl=${udpConfig.ttl}`;
+    const simpleUdpUrl = `udp://${udpIp}:${udpPort}/1`;
     
     // Determine GPU to use
     let selectedGPU = gpu;
@@ -1129,32 +1051,24 @@ async function startUdpStream(channelId, profile = 'passthrough', gpu = 'auto', 
         selectedGPU = gpuInfo.nvidia ? 'nvidia' : (gpuInfo.amd ? 'amd' : 'cpu');
     }
     
+    // Get encoder config and profile
+    const encoder = getFFmpegEncoder(selectedGPU);
     const profileConfig = config.transcoding.profiles[profile];
-    
-    // Use channelNumberUrl if available for input
-    const inputUrl = channel.channelNumberUrl || channel.url;
     
     // Build FFmpeg command
     let ffmpegArgs = [
-        '-hwaccel', 'auto',
-        '-probesize', '10000000',
-        '-analyzeduration', '10000000',
-        '-i', inputUrl,
+        '-i', channel.url,
     ];
     
     // If using passthrough profile, don't transcode
     if (profileConfig.passthrough) {
         ffmpegArgs = ffmpegArgs.concat([
-            '-map', '0:v',
-            '-map', '0:a:0',
             '-c', 'copy',
             '-f', 'mpegts',
             udpOutputUrl
         ]);
     } else {
-        // Get encoder for transcoding
-        const encoder = getFFmpegEncoder(selectedGPU);
-        
+        // Apply transcoding with selected GPU encoder
         ffmpegArgs = ffmpegArgs.concat([
             '-c:v', encoder.video,
             '-preset', encoder.preset,
@@ -1172,36 +1086,65 @@ async function startUdpStream(channelId, profile = 'passthrough', gpu = 'auto', 
     console.log(`UDP output: ${udpOutputUrl}`);
     
     let ffmpeg = spawn('ffmpeg', ffmpegArgs);
+    let usingFallback = false;
     
-    // Handle FFmpeg events
+    // Handle encoder fallback for older AMD GPUs
     ffmpeg.stderr.on('data', (data) => {
         const output = data.toString();
-        console.log(`UDP FFmpeg stderr [${channelId}]:`, output);
+        
+        // Check for h264_amf not available error (common on RX580)
+        if (output.includes('h264_amf') && output.includes('not found') && encoder.fallback && !usingFallback) {
+            console.warn('h264_amf encoder not available for UDP, falling back to software encoding with OpenCL optimization');
+            
+            // Kill current process
+            ffmpeg.kill('SIGTERM');
+            
+            // Start with fallback encoder
+            const fallbackArgs = [
+                '-i', channel.url,
+                '-c:v', encoder.fallback,
+                '-preset', 'fast',
+                '-s', `${profileConfig.width}x${profileConfig.height}`,
+                '-b:v', profileConfig.bitrate,
+                '-c:a', 'aac',
+                '-b:a', profileConfig.audioBitrate || '128k',
+                '-f', 'mpegts',
+                udpOutputUrl
+            ];
+            
+            ffmpeg = spawn('ffmpeg', fallbackArgs);
+            usingFallback = true;
+            
+            // Re-attach data handlers
+            ffmpeg.stderr.on('data', (data) => {
+                // Simple logging
+                console.log(`UDP stderr: ${data.toString()}`);
+            });
+            
+            ffmpeg.on('close', (code) => handleUdpStreamClose(code, channelId));
+        } else {
+            // Simple logging
+            console.log(`UDP stderr: ${data.toString()}`);
+        }
     });
     
-    ffmpeg.on('close', (code) => {
-        console.log(`UDP stream closed with code ${code} for channel ${channelId}`);
-        handleUdpStreamClose(code, channelId);
-    });
-    
-    ffmpeg.on('error', (error) => {
-        console.error(`UDP FFmpeg error [${channelId}]:`, error);
-    });
+    // Handle stream close
+    ffmpeg.on('close', (code) => handleUdpStreamClose(code, channelId));
     
     // Store UDP stream
-    activeUdpStreams.set(channelId, {
+    activeUdpStreams.set(searchId, {
         process: ffmpeg,
-        channelId: channelId,
+        channelId: searchId,
         profile: profile,
         gpu: selectedGPU,
         udpUrl: udpOutputUrl,
         simpleUdpUrl: simpleUdpUrl,
         startTime: Date.now(),
-        channelNumber: channel.channelNumber
+        usingFallback: false
     });
     
     // Update channel status
-    const channelIndex = channels.findIndex(c => c.id == channelId);
+    const channelIndex = channels.findIndex(c => c.id === searchId);
     if (channelIndex !== -1) {
         channels[channelIndex].isActive = true;
         channels[channelIndex].udpStreaming = true;
@@ -1211,8 +1154,7 @@ async function startUdpStream(channelId, profile = 'passthrough', gpu = 'auto', 
     
     // Notify clients
     io.emit('udpStreamStarted', { 
-        channelId,
-        channelNumber: channel.channelNumber,
+        channelId: searchId,
         profile: profile,
         gpu: selectedGPU,
         udpUrl: udpOutputUrl,
@@ -1222,8 +1164,7 @@ async function startUdpStream(channelId, profile = 'passthrough', gpu = 'auto', 
     
     return {
         success: true,
-        channelId,
-        channelNumber: channel.channelNumber,
+        channelId: searchId,
         profile: profile,
         gpu: selectedGPU,
         udpUrl: udpOutputUrl,
@@ -1235,8 +1176,11 @@ async function startUdpStream(channelId, profile = 'passthrough', gpu = 'auto', 
 function handleUdpStreamClose(code, channelId) {
     console.log(`UDP stream closed with code ${code} for channel ${channelId}`);
     
+    // Convert channelId to match the type used in channels array
+    const searchId = typeof channelId === 'string' ? parseFloat(channelId) : channelId;
+    
     // Update channel status
-    const channelIndex = channels.findIndex(c => c.id == channelId);
+    const channelIndex = channels.findIndex(c => c.id === searchId);
     if (channelIndex !== -1) {
         channels[channelIndex].udpStreaming = false;
         channels[channelIndex].udpUrl = null;
@@ -1249,22 +1193,25 @@ function handleUdpStreamClose(code, channelId) {
     }
     
     // Remove stream from active streams
-    activeUdpStreams.delete(channelId);
+    activeUdpStreams.delete(searchId);
     
     // Notify clients
-    io.emit('udpStreamStopped', { channelId });
+    io.emit('udpStreamStopped', { channelId: searchId });
     io.emit('channelsUpdated', channels);
 }
 
 // Stop UDP stream
 function stopUdpStream(channelId) {
-    const stream = activeUdpStreams.get(channelId);
+    // Convert channelId to match the type used in channels array
+    const searchId = typeof channelId === 'string' ? parseFloat(channelId) : channelId;
+    
+    const stream = activeUdpStreams.get(searchId);
     if (stream) {
         stream.process.kill('SIGTERM');
-        activeUdpStreams.delete(channelId);
+        activeUdpStreams.delete(searchId);
         
         // Update channel status
-        const channelIndex = channels.findIndex(c => c.id == channelId);
+        const channelIndex = channels.findIndex(c => c.id === searchId);
         if (channelIndex !== -1) {
             channels[channelIndex].udpStreaming = false;
             channels[channelIndex].udpUrl = null;
@@ -1276,7 +1223,7 @@ function stopUdpStream(channelId) {
             }
         }
         
-        io.emit('udpStreamStopped', { channelId });
+        io.emit('udpStreamStopped', { channelId: searchId });
         io.emit('channelsUpdated', channels);
         
         return true;
@@ -1288,17 +1235,6 @@ function stopUdpStream(channelId) {
 function monitorBandwidth() {
     for (const [channelId, stream] of activeStreams) {
         try {
-            // Skip bandwidth monitoring for passthrough streams (no output files)
-            if (stream.passthrough || !stream.outputPath) {
-                // For passthrough streams, just update the channel to show it's active
-                const channelIndex = channels.findIndex(c => c.id == channelId);
-                if (channelIndex !== -1) {
-                    channels[channelIndex].bandwidth = 0; // No file bandwidth for passthrough
-                    channels[channelIndex].totalData = 0;
-                }
-                continue;
-            }
-            
             const outputDir = path.dirname(stream.outputPath);
             const stats = streamStats.get(channelId);
             
@@ -1329,7 +1265,7 @@ function monitorBandwidth() {
                     stats.lastBytes = totalBytes;
                     
                     // Update channel info
-                    const channelIndex = channels.findIndex(c => c.id == channelId);
+                    const channelIndex = channels.findIndex(c => c.id === channelId);
                     if (channelIndex !== -1) {
                         channels[channelIndex].bandwidth = stats.bandwidth;
                         channels[channelIndex].totalData = stats.totalData;
@@ -2029,454 +1965,3 @@ process.on('SIGTERM', () => {
         process.exit(0);
     });
 });
-
-// Start the server
-initializeServer();
-
-// Kernel Management API endpoints
-app.get('/api/kernel/current', async (req, res) => {
-    try {
-        const currentKernel = await new Promise((resolve) => {
-            exec('uname -r', (error, stdout) => {
-                if (error) {
-                    resolve({ error: error.message, current: 'Unknown' });
-                } else {
-                    resolve({ current: stdout.trim() });
-                }
-            });
-        });
-        
-        res.json(currentKernel);
-    } catch (error) {
-        console.error('Error getting current kernel:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/api/kernel/list', async (req, res) => {
-    try {
-        const kernelList = await new Promise((resolve) => {
-            exec("awk -F\"'\" '/menuentry / { print i++ \" : \" $2 }' /boot/grub/grub.cfg", (error, stdout) => {
-                if (error) {
-                    resolve({ error: error.message, kernels: [] });
-                } else {
-                    const kernels = stdout.trim().split('\n').filter(line => line.trim()).map(line => {
-                        const parts = line.split(' : ');
-                        return {
-                            index: parseInt(parts[0]),
-                            name: parts[1] || line
-                        };
-                    });
-                    resolve({ kernels });
-                }
-            });
-        });
-        
-        res.json(kernelList);
-    } catch (error) {
-        console.error('Error listing kernels:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/kernel/install', async (req, res) => {
-    try {
-        const { version = '5.4.230' } = req.body;
-        
-        // Send initial response
-        res.json({ success: true, message: 'Kernel installation started' });
-        
-        // Create kernel directory and start installation
-        const kernelDir = `~/kernel-${version}`;
-        const commands = [
-            `mkdir -p ${kernelDir} && cd ${kernelDir}`,
-            `wget https://kernel.ubuntu.com/~kernel-ppa/mainline/v${version}/amd64/linux-headers-${version}-0504230_${version}-0504230.202301240741_all.deb`,
-            `wget https://kernel.ubuntu.com/~kernel-ppa/mainline/v${version}/amd64/linux-headers-${version}-0504230-generic_${version}-0504230.202301240741_amd64.deb`,
-            `wget https://kernel.ubuntu.com/~kernel-ppa/mainline/v${version}/amd64/linux-modules-${version}-0504230-generic_${version}-0504230.202301240741_amd64.deb`,
-            `wget https://kernel.ubuntu.com/~kernel-ppa/mainline/v${version}/amd64/linux-image-unsigned-${version}-0504230-generic_${version}-0504230.202301240741_amd64.deb`,
-            'sudo dpkg -i *.deb',
-            'sudo update-grub'
-        ];
-        
-        let commandIndex = 0;
-        
-        function runNextCommand() {
-            if (commandIndex >= commands.length) {
-                io.emit('kernelInstallComplete', { 
-                    success: true, 
-                    message: 'Kernel installation completed. Reboot required.',
-                    version 
-                });
-                return;
-            }
-            
-            const command = commands[commandIndex];
-            commandIndex++;
-            
-            io.emit('kernelInstallProgress', {
-                step: commandIndex,
-                total: commands.length,
-                command,
-                message: `Executing: ${command}`
-            });
-            
-            const process = exec(command, { timeout: 300000 }, (error, stdout, stderr) => {
-                if (error) {
-                    io.emit('kernelInstallError', {
-                        error: error.message,
-                        command,
-                        stderr: stderr
-                    });
-                    return;
-                }
-                
-                io.emit('kernelInstallProgress', {
-                    step: commandIndex,
-                    total: commands.length,
-                    command,
-                    message: `Completed: ${command}`,
-                    output: stdout
-                });
-                
-                // Continue with next command
-                setTimeout(runNextCommand, 1000);
-            });
-        }
-        
-        // Start installation
-        runNextCommand();
-        
-    } catch (error) {
-        console.error('Error starting kernel installation:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/kernel/set-default', async (req, res) => {
-    try {
-        const { kernelIndex } = req.body;
-        
-        if (kernelIndex === undefined) {
-            return res.status(400).json({ error: 'Kernel index is required' });
-        }
-        
-        // Update GRUB default
-        const command = `sudo sed -i 's/GRUB_DEFAULT=.*/GRUB_DEFAULT=${kernelIndex}/' /etc/default/grub && sudo update-grub`;
-        
-        exec(command, (error, stdout, stderr) => {
-            if (error) {
-                res.status(500).json({ error: error.message, stderr });
-            } else {
-                res.json({ 
-                    success: true, 
-                    message: `Default kernel set to index ${kernelIndex}. Reboot required.`,
-                    output: stdout 
-                });
-            }
-        });
-        
-    } catch (error) {
-        console.error('Error setting default kernel:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/kernel/reboot', async (req, res) => {
-    try {
-        res.json({ 
-            success: true, 
-            message: 'System reboot initiated...' 
-        });
-        
-        // Give client time to receive response before rebooting
-        setTimeout(() => {
-            exec('sudo reboot', (error) => {
-                if (error) {
-                    console.error('Reboot error:', error);
-                }
-            });
-               }, 2000);
-        
-    } catch (error) {
-        console.error('Error initiating reboot:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/kernel/command', async (req, res) => {
-    try {
-        const { command } = req.body;
-        
-        if (!command) {
-            return res.status(400).json({ error: 'Command is required' });
-        }
-        
-        res.json({ success: true, message: 'Command started' });
-        
-        const process = exec(command, { timeout: 60000 }, (error, stdout, stderr) => {
-            io.emit('kernelCommandResult', {
-                command,
-                success: !error,
-                output: stdout,
-                error: error ? error.message : null,
-                stderr: stderr
-            });
-        });
-        
-        process.stdout.on('data', (data) => {
-            io.emit('kernelCommandOutput', {
-                command,
-                output: data.toString()
-            });
-        });
-        
-        process.stderr.on('data', (data) => {
-            io.emit('kernelCommandOutput', {
-                command,
-                output: data.toString(),
-                isError: true
-            });
-        });
-        
-    } catch (error) {
-        console.error('Error executing kernel command:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// TVHeadend status endpoint
-app.get('/api/tvheadend-status', (req, res) => {
-    res.json(tvheadendStatus);
-});
-
-// Check TVHeadend connection endpoint
-app.post('/api/check-tvheadend', async (req, res) => {
-    try {
-        const isConnected = await checkTVHeadendConnection();
-        res.json({ 
-            connected: isConnected, 
-            status: tvheadendStatus 
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            connected: false, 
-            error: error.message,
-            status: tvheadendStatus 
-        });
-    }
-});
-
-// FFmpeg status and installation endpoints
-app.get('/api/check-ffmpeg', async (req, res) => {
-    try {
-        const isInstalled = await checkFFmpegInstallation();
-        res.json({ 
-            installed: isInstalled,
-            message: isInstalled ? 'FFmpeg is available' : 'FFmpeg not found'
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            installed: false, 
-            error: error.message 
-        });
-    }
-});
-
-app.post('/api/install-ffmpeg', async (req, res) => {
-    try {
-        // First check if already installed
-        const alreadyInstalled = await checkFFmpegInstallation();
-        if (alreadyInstalled) {
-            return res.json({ 
-                success: true, 
-                message: 'FFmpeg is already installed',
-                alreadyInstalled: true 
-            });
-        }
-        
-        // Attempt auto-installation
-        const installSuccess = await autoInstallFFmpeg();
-        
-        if (installSuccess) {
-            res.json({ 
-                success: true, 
-                message: 'FFmpeg installed successfully' 
-            });
-        } else {
-            res.status(500).json({ 
-                success: false, 
-                message: 'FFmpeg installation failed. Please install manually.',
-                installScript: 'You can run: chmod +x install.sh && ./install.sh'
-            });
-        }
-    } catch (error) {
-        res.status(500).json({ 
-            success: false, 
-            error: error.message 
-        });
-    }
-});
-
-app.post('/api/refresh-playlist', async (req, res) => {
-    try {
-        await fetchPlaylist();
-        res.json({ success: true, count: channels.length });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/start-stream/:channelId', async (req, res) => {
-    try {
-        const { channelId } = req.params;
-        const { profile = 'medium', gpu = 'auto' } = req.body;
-        
-        // Keep channelId as string to support both numeric and string IDs
-        const result = await startTranscoding(channelId, profile, gpu);
-        res.json(result);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/stop-stream/:channelId', (req, res) => {
-    try {
-        const { channelId } = req.params;
-        const result = stopTranscoding(channelId);
-        
-        if (result) {
-            res.json({ success: true });
-        } else {
-            res.status(404).json({ error: 'Stream not found' });
-        }
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/start-all-streams', async (req, res) => {
-    try {
-        const { profile = 'medium', gpu = 'auto' } = req.body;
-        const results = [];
-        
-        for (const channel of channels) {
-            try {
-                const result = await startTranscoding(channel.id, profile, gpu);
-                results.push({ channelId: channel.id, success: true, result });
-            } catch (error) {
-                results.push({ channelId: channel.id, success: false, error: error.message });
-            }
-        }
-        
-        res.json({ success: true, results });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/stop-all-streams', (req, res) => {
-    try {
-        const results = [];
-        
-        for (const [channelId] of activeStreams) {
-            const result = stopTranscoding(channelId);
-            results.push({ channelId, success: result });
-        }
-        
-        res.json({ success: true, results });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// UDP streaming endpoints
-app.post('/api/start-udp/:channelId', async (req, res) => {
-    try {
-        const { channelId } = req.params;
-        const { profile = 'passthrough', gpu = 'auto', ip, port } = req.body;
-        
-        const udpOptions = {
-            ip: ip || config.streaming.udp.defaultIp,
-            port: port || config.streaming.udp.defaultPort
-        };
-        
-        const result = await startUdpStream(channelId, profile, gpu, udpOptions);
-        res.json(result);
-    } catch (error) {
-        console.error('Error starting UDP stream:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/stop-udp/:channelId', (req, res) => {
-    try {
-        const { channelId } = req.params;
-        const result = stopUdpStream(channelId);
-        
-        if (result) {
-            res.json({ success: true });
-        } else {
-            res.status(404).json({ error: 'UDP stream not found' });
-        }
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/start-all-udp', async (req, res) => {
-    try {
-        const { profile = 'passthrough', gpu = 'auto', ip, port } = req.body;
-        const results = [];
-        
-        const udpOptions = {
-            ip: ip || config.streaming.udp.defaultIp,
-            port: port || config.streaming.udp.defaultPort
-        };
-        
-        // If port specified, increment for each channel
-        let currentPort = udpOptions.port;
-        
-        for (const channel of channels) {
-            try {
-                // Assign unique port for each channel if starting all
-                const channelUdpOptions = { 
-                    ip: udpOptions.ip,
-                    port: currentPort++
-                };
-                
-                const result = await startUdpStream(channel.id, profile, gpu, channelUdpOptions);
-                results.push({ 
-                    channelId: channel.id, 
-                    success: true, 
-                    udpUrl: result.udpUrl 
-                });
-            } catch (error) {
-                results.push({ channelId: channel.id, success: false, error: error.message });
-            }
-        }
-        
-        res.json({ success: true, results });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/stop-all-udp', (req, res) => {
-    try {
-        const results = [];
-        
-        for (const [channelId] of activeUdpStreams) {
-            const result = stopUdpStream(channelId);
-            results.push({ channelId, success: result });
-        }
-        
-        res.json({ success: true, results });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-
-
-
-

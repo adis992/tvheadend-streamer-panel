@@ -348,7 +348,7 @@ configure_firewall() {
         sudo systemctl start firewalld
         sudo systemctl enable firewalld
         sudo firewall-cmd --permanent --add-port=3000/tcp
-        sudo firewall-cmd --permanent --add-port=8080/tcp
+        sudo firewall-cmd --permanent --add-port=8084/tcp
         sudo firewall-cmd --reload
     fi
     

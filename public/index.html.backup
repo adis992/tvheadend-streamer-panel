@@ -152,7 +152,6 @@
         
         .status-idle { background: #6c757d; }
         .status-transcoding { background: #ffc107; }
-        .status-passthrough { background: #17a2b8; }
         .status-streaming { background: #28a745; }
         .status-error { background: #dc3545; }
         
@@ -288,7 +287,6 @@
         .status-active { background: #28a745; color: white; }
         .status-inactive { background: #6c757d; color: white; }
         .status-transcoding { background: #ffc107; color: #333; }
-        .status-passthrough { background: #17a2b8; color: white; }
         
         .btn-sm {
             padding: 5px 12px;
@@ -335,22 +333,6 @@
             color: #666;
             word-break: break-all;
             margin-top: 5px;
-        }
-        
-        .output-link {
-            font-size: 0.8em;
-            margin-top: 3px;
-            padding: 2px 0;
-        }
-        
-        .output-link a {
-            font-family: monospace;
-            color: inherit;
-        }
-        
-        .output-link .btn-link {
-            font-size: 0.7em;
-            margin-left: 5px;
         }
         
         .bandwidth-info {
@@ -435,11 +417,6 @@
                 </a>
             </div>
             <div class="nav-item">
-                <a class="nav-link" href="kernel.html">
-                    <i class="fas fa-microchip"></i> Kernel
-                </a>
-            </div>
-            <div class="nav-item">
                 <a class="nav-link" href="about.html">
                     <i class="fas fa-info-circle"></i> About
                 </a>
@@ -451,20 +428,8 @@
     <div class="main-content">
         <!-- Header -->
         <div class="header">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h1><i class="fas fa-broadcast-tower"></i> TVHeadend Streamer</h1>
-                    <p class="mb-0">GPU Accelerated Transcoding Platform</p>
-                </div>
-                <div class="download-options">
-                    <button class="btn btn-outline-light btn-sm me-2" id="downloadChannelList">
-                        <i class="fas fa-download"></i> Download Channel List
-                    </button>
-                    <button class="btn btn-outline-light btn-sm" id="downloadActiveStreams">
-                        <i class="fas fa-download"></i> Download Active Streams
-                    </button>
-                </div>
-            </div>
+            <h1><i class="fas fa-broadcast-tower"></i> TVHeadend Streamer</h1>
+            <p class="mb-0">GPU Accelerated Transcoding Platform</p>
             <div class="gpu-status">
                 <div id="nvidia-status" class="gpu-badge gpu-unavailable">
                     <i class="fas fa-microchip"></i> NVIDIA: Checking...
@@ -502,18 +467,10 @@
                     <div class="mb-3">
                         <label class="form-label">Globalni Profil (za bulk operacije):</label>
                         <select id="quality-select" class="form-select" title="Select transcoding quality">
-                            <option value="passthrough" selected>Passthrough (Direktni stream)</option>
-                            <optgroup label="AMD RX 580 Optimizirani">
-                                <option value="low_amd">AMD Low (854x480, 800kbps)</option>
-                                <option value="medium_amd">AMD Medium (1280x720, 1.8Mbps)</option>
-                                <option value="high_amd">AMD High (1920x1080, 3.5Mbps)</option>
-                            </optgroup>
-                            <optgroup label="Standardni profili">
-                                <option value="low">Niska (640x480, 500kbps)</option>
-                                <option value="medium">Srednja (1280x720, 1.5Mbps)</option>
-                                <option value="high">Visoka (1920x1080, 3Mbps)</option>
-                                <option value="ultra">Ultra (2560x1440, 6Mbps)</option>
-                            </optgroup>
+                            <option value="low">Niska (640x480, 500kbps)</option>
+                            <option value="medium" selected>Srednja (1280x720, 1.5Mbps)</option>
+                            <option value="high">Visoka (1920x1080, 3Mbps)</option>
+                            <option value="ultra">Ultra (2560x1440, 6Mbps)</option>
                         </select>
                     </div>
                     
@@ -546,14 +503,9 @@
                 <div class="channels-container">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h4><i class="fas fa-list"></i> Kanali</h4>
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-sm btn-outline-primary" onclick="manualRefreshChannels()" title="Osveži prikaz kanala">
-                                <i class="fas fa-sync"></i>
-                            </button>
-                            <div class="input-group" style="width: 300px;">
-                                <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                <input type="text" id="search-input" class="form-control" placeholder="Pretraži kanale...">
-                            </div>
+                        <div class="input-group" style="width: 300px;">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" id="search-input" class="form-control" placeholder="Pretraži kanale...">
                         </div>
                     </div>
                     
@@ -589,7 +541,6 @@
         let availableGPUs = {};
         let autoRefreshEnabled = true;
         let autoRefreshInterval = null;
-        let serverConfig = null;
         
         // DOM elements
         const channelsList = document.getElementById('channels-list');
@@ -602,27 +553,18 @@
         const progressContainer = document.getElementById('progress-container');
         const nvidiaStatus = document.getElementById('nvidia-status');
         const amdStatus = document.getElementById('amd-status');
+        const autoRefreshToggle = document.getElementById('auto-refresh-toggle');
         
         // Socket event listeners
         socket.on('connect', () => {
-            console.log('🔥 Connected to server');
+            console.log('Connected to server');
             fetchGPUInfo();
             checkVLCInstallation();
         });
         
-        socket.on('disconnect', () => {
-            console.log('🔥 Disconnected from server');
-        });
-        
-        socket.on('reconnect', () => {
-            console.log('🔥 Reconnected to server');
-        });
-        
         socket.on('channelsUpdated', (channelsData) => {
-            // Only update if data actually changed
-            const channelsChanged = JSON.stringify(channels) !== JSON.stringify(channelsData);
-            if (channelsChanged) {
-                console.log('Channels data changed, updating UI');
+            // Only update channels if auto-refresh is enabled
+            if (autoRefreshEnabled) {
                 channels = channelsData;
                 renderChannels();
                 updateStats();
@@ -646,48 +588,14 @@
         }
         
         socket.on('streamStarted', (data) => {
-            console.log(`🔥 RECEIVED streamStarted event:`, data);
             activeStreams.add(data.channelId);
-            
-            // Show appropriate notification based on stream type
-            const statusMessage = data.passthrough 
-                ? `Passthrough stream aktiviran za kanal ${data.channelId}` 
-                : `Transkodiranje u toku za kanal ${data.channelId} (${data.profile}, ${data.gpu})`;
-            showNotification(statusMessage, 'success');
-            
-            // Update local channel status immediately for responsive UI
-            const channel = channels.find(c => c.id === data.channelId);
-            if (channel) {
-                channel.isActive = true;
-                // For passthrough streams, transcoding should be false
-                channel.transcoding = data.passthrough ? false : true;
-                channel.passthrough = data.passthrough || false;
-                channel.profile = data.profile;
-                channel.gpu = data.gpu;
-                
-                console.log(`🔥 Updated channel ${data.channelId}: active=${channel.isActive}, transcoding=${channel.transcoding}, passthrough=${channel.passthrough}, profile=${data.profile}`);
-                
-                renderChannels(); // Re-render immediately
-            } else {
-                console.error(`🔥 Channel not found for ID: ${data.channelId}`);
-            }
+            showNotification(`Stream pokrennut za kanal ID: ${data.channelId}`, 'success');
             updateStats();
         });
         
         socket.on('streamStopped', (data) => {
             activeStreams.delete(data.channelId);
-            showNotification(`Stream zaustavljen za kanal ${data.channelId}`, 'info');
-            
-            // Update local channel status immediately
-            const channel = channels.find(c => c.id === data.channelId);
-            if (channel) {
-                channel.isActive = false;
-                channel.transcoding = false;
-                channel.passthrough = false;
-                channel.bandwidth = 0;
-                console.log(`Stopped channel ${data.channelId}: active=${channel.isActive}, transcoding=${channel.transcoding}, passthrough=${channel.passthrough}`);
-                renderChannels(); // Re-render immediately
-            }
+            showNotification(`Stream zaustavljen za kanal ID: ${data.channelId}`, 'info');
             updateStats();
         });
         
@@ -711,21 +619,6 @@
             }
         }
         
-        async function fetchChannels() {
-            try {
-                const response = await fetch('/api/channels');
-                const data = await response.json();
-                channels = data;
-                console.log('Loaded channels:', channels.length);
-                
-                // Always render channels after loading
-                renderChannels();
-                updateStats();
-            } catch (error) {
-                console.error('Error fetching channels:', error);
-            }
-        }
-        
         async function fetchProfiles() {
             try {
                 const response = await fetch('/api/profiles');
@@ -738,11 +631,6 @@
                 // Debug output for troubleshooting
                 console.log('Profile keys:', Object.keys(availableProfiles));
                 console.log('GPU structure:', availableGPUs);
-                
-                // Re-render channels now that profiles are loaded
-                if (channels && channels.length > 0) {
-                    renderChannels();
-                }
             } catch (error) {
                 console.error('Error fetching profiles:', error);
             }
@@ -774,13 +662,10 @@
             
             const html = channelsToRender.map(channel => {
                 const statusClass = channel.isActive ? 
-                    (channel.passthrough ? 'channel-passthrough' : 
-                     channel.transcoding ? 'channel-transcoding' : 'channel-active') : '';
+                    (channel.transcoding ? 'channel-transcoding' : 'channel-active') : '';
                 
                 const statusBadge = channel.isActive ? 
-                    (channel.passthrough ? 
-                        `<span class="status-badge status-passthrough">Passthrough</span>` :
-                        channel.transcoding ? 
+                    (channel.transcoding ? 
                         `<span class="status-badge status-transcoding">Transkoduje</span>` :
                         `<span class="status-badge status-active">Aktivan</span>`
                     ) : 
@@ -789,14 +674,9 @@
                 const bandwidthInfo = channel.isActive && channel.bandwidth !== undefined ? 
                     `<div class="bandwidth-info">
                         <i class="fas fa-tachometer-alt"></i>
-                        ${channel.bandwidth > 0 ? channel.bandwidth.toFixed(2) : '0.00'} MB/s 
+                        ${channel.bandwidth.toFixed(2)} MB/s 
                         <span style="color: #666;">(${(channel.totalData || 0).toFixed(1)} MB)</span>
-                    </div>` : 
-                    (channel.isActive ? 
-                        `<div class="bandwidth-info">
-                            <i class="fas fa-tachometer-alt"></i>
-                            Passthrough - 0.00 MB/s (0.0 MB)
-                        </div>` : '');
+                    </div>` : '';
                 
                 const vlcButton = channel.isActive ? 
                     `<button class="btn btn-sm vlc-button ${!vlcInstalled ? 'vlc-not-installed' : ''}" 
@@ -805,33 +685,37 @@
                         <i class="fas fa-play-circle"></i> VLC
                     </button>` : '';
                 
-                // Generate profile options - simplified static version
-                const selectedProfile = channel.profile || 'medium';
-                const profileOptions = `
-                    <option value="passthrough" ${selectedProfile === 'passthrough' ? 'selected' : ''}>Passthrough (Direktni stream)</option>
-                    <optgroup label="AMD RX 580 Optimizirani">
-                        <option value="low_amd" ${selectedProfile === 'low_amd' ? 'selected' : ''}>AMD Low (854x480, 800kbps)</option>
-                        <option value="medium_amd" ${selectedProfile === 'medium_amd' ? 'selected' : ''}>AMD Medium (1280x720, 1.8Mbps)</option>
-                        <option value="high_amd" ${selectedProfile === 'high_amd' ? 'selected' : ''}>AMD High (1920x1080, 3.5Mbps)</option>
-                    </optgroup>
-                    <optgroup label="Standardni profili">
-                        <option value="low" ${selectedProfile === 'low' ? 'selected' : ''}>Low (640x480)</option>
-                        <option value="medium" ${selectedProfile === 'medium' ? 'selected' : ''}>Medium (1280x720)</option>
-                        <option value="high" ${selectedProfile === 'high' ? 'selected' : ''}>High (1920x1080)</option>
-                        <option value="ultra" ${selectedProfile === 'ultra' ? 'selected' : ''}>Ultra (2560x1440)</option>
-                        <option value="hevc_low" ${selectedProfile === 'hevc_low' ? 'selected' : ''}>HEVC Low (640x480)</option>
-                        <option value="hevc_medium" ${selectedProfile === 'hevc_medium' ? 'selected' : ''}>HEVC Medium (1280x720)</option>
-                        <option value="hevc_high" ${selectedProfile === 'hevc_high' ? 'selected' : ''}>HEVC High (1920x1080)</option>
-                    </optgroup>
-                `;
+                // Generate profile options
+                const profileOptions = Object.keys(availableProfiles).map(profileKey => {
+                    const profile = availableProfiles[profileKey];
+                    // Handle both old format (direct properties) and new format (profile object)
+                    const name = profile.name || profileKey;
+                    const width = profile.width;
+                    const height = profile.height;
+                    const passthrough = profile.passthrough;
+                    const description = profile.description;
+                    
+                    // Special handling for passthrough profile
+                    if (passthrough || profileKey === 'passthrough') {
+                        return `<option value="${profileKey}" ${(channel.profile || 'passthrough') === profileKey ? 'selected' : ''}>
+                            Passthrough (Direktni stream)
+                        </option>`;
+                    } else {
+                        const displayName = name.charAt(0).toUpperCase() + name.slice(1);
+                        const resolution = width && height ? `${width}x${height}` : 'Auto';
+                        return `<option value="${profileKey}" ${(channel.profile || 'passthrough') === profileKey ? 'selected' : ''}>
+                            ${displayName} (${resolution})
+                        </option>`;
+                    }
+                }).join('');
                 
-                // Generate GPU options - simplified static version
-                const selectedGPU = channel.gpu || 'auto';
-                const gpuOptions = `
-                    <option value="auto" ${selectedGPU === 'auto' ? 'selected' : ''}>Auto</option>
-                    <option value="amd" ${selectedGPU === 'amd' ? 'selected' : ''}>AMD</option>
-                    <option value="nvidia" ${selectedGPU === 'nvidia' ? 'selected' : ''}>NVIDIA</option>
-                `;
+                // Generate GPU options - only show available GPUs, no CPU option
+                const gpuOptions = [
+                    '<option value="auto">Auto</option>',
+                    (availableGPUs.nvidia && availableGPUs.nvidia.available) ? '<option value="nvidia">NVIDIA</option>' : '',
+                    (availableGPUs.amd && availableGPUs.amd.available) ? '<option value="amd">AMD</option>' : '',
+                    (availableGPUs.intel && availableGPUs.intel.available) ? '<option value="intel">Intel</option>' : ''
+                ].filter(Boolean).join('');
                 
                 const profileSelect = `
                     <div class="channel-profile-select mb-2">
@@ -861,47 +745,12 @@
                                      onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIGZpbGw9IiNjY2MiIHZpZXdCb3g9IjAgMCAyNCAyNCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMjEgNkg9djEwaDEyVjZtLTItM0g1djEwaDE0VjN6Ii8+PC9zdmc+'">
                                 
                                 <div class="channel-info">
-                                    <div class="channel-name">
-                                        ${channel.channelNumber ? `<span class="badge bg-primary me-2">${channel.channelNumber}</span>` : ''}
-                                        ${channel.name}
-                                    </div>
+                                    <div class="channel-name">${channel.name}</div>
                                     <div class="channel-group">
                                         <i class="fas fa-folder"></i> ${channel.group}
                                     </div>
                                     ${bandwidthInfo}
                                     <div class="channel-url">${channel.url}</div>
-                                    ${channel.isActive ? `
-                                        <div class="mt-2">
-                                            <div class="output-link">
-                                                <small class="text-primary">
-                                                    <i class="fas fa-stream"></i> ${channel.passthrough ? 'Direct' : 'HLS'}: 
-                                                    <a href="${channel.passthrough ? channel.url : `http://${window.location.hostname}:${serverConfig.streaming.port}/streams/${channel.channelNumber || channel.id}/playlist.m3u8`}" target="_blank" style="text-decoration: none;">
-                                                        ${channel.passthrough ? channel.url : `http://${window.location.hostname}:${serverConfig.streaming.port}/streams/${channel.channelNumber || channel.id}/playlist.m3u8`}
-                                                    </a>
-                                                    <button class="btn btn-sm btn-link p-0" onclick="copyToClipboard('${channel.passthrough ? channel.url : `http://${window.location.hostname}:${serverConfig.streaming.port}/streams/${channel.channelNumber || channel.id}/playlist.m3u8`}')" title="Copy ${channel.passthrough ? 'Direct' : 'HLS'} URL">
-                                                        <i class="fas fa-copy"></i>
-                                                    </button>
-                                                    <button class="btn btn-sm btn-link p-0" onclick="openInVlc('${channel.passthrough ? channel.url : `http://${window.location.hostname}:${serverConfig.streaming.port}/streams/${channel.channelNumber || channel.id}/playlist.m3u8`}')" title="Open in VLC">
-                                                        <i class="fas fa-play text-warning"></i>
-                                                    </button>
-                                                </small>
-                                            </div>
-                                            ${channel.udpStreaming && channel.simpleUdpUrl ? `
-                                            <div class="output-link">
-                                                <small class="text-success">
-                                                    <i class="fas fa-broadcast-tower"></i> UDP: 
-                                                    <span style="font-family: monospace;">${channel.simpleUdpUrl}</span>
-                                                    <button class="btn btn-sm btn-link p-0" onclick="copyToClipboard('${channel.simpleUdpUrl}')" title="Copy UDP URL">
-                                                        <i class="fas fa-copy"></i>
-                                                    </button>
-                                                    <button class="btn btn-sm btn-link p-0" onclick="openInVlc('${channel.simpleUdpUrl}')" title="Open in VLC">
-                                                        <i class="fas fa-play text-warning"></i>
-                                                    </button>
-                                                </small>
-                                            </div>
-                                            ` : ''}
-                                        </div>
-                                    ` : ''}
                                 </div>
                                 
                                 <div class="channel-controls">
@@ -973,8 +822,6 @@
                 
                 if (result.success) {
                     showNotification(`Uspješno učitano ${result.count} kanala`, 'success');
-                    // Reload channels after refreshing playlist
-                    await fetchChannels();
                 } else {
                     throw new Error(result.error);
                 }
@@ -1010,22 +857,13 @@
         }
         
         async function startStreamWithOptions(channelId) {
-            console.log(`🔥 Starting stream for channel ${channelId}`);
-            
             const profileSelect = document.getElementById(`profile-${channelId}`);
             const gpuSelect = document.getElementById(`gpu-${channelId}`);
             
-            const profile = profileSelect ? profileSelect.value : 'passthrough';
+            const profile = profileSelect ? profileSelect.value : 'medium';
             const gpu = gpuSelect ? gpuSelect.value : 'auto';
             
-            console.log(`🔥 Profile: ${profile}, GPU: ${gpu}`);
-            
-            // Determine if this is passthrough or transcoding
-            const isPassthrough = profile === 'passthrough';
-            
             try {
-                console.log(`🔥 Sending API request to /api/start-stream/${channelId}`);
-                
                 const response = await fetch(`/api/start-stream/${channelId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1033,41 +871,25 @@
                 });
                 
                 const result = await response.json();
-                console.log(`🔥 API response:`, result);
                 
                 if (response.ok) {
-                    // Show appropriate message based on stream type
-                    const statusMessage = isPassthrough 
-                        ? `Passthrough aktiviran za kanal ${channelId}` 
-                        : `Transkodiranje pokrenuto za kanal ${channelId} (${profile}, ${gpu})`;
-                    showNotification(statusMessage, 'success');
+                    showNotification(`Stream pokrennut za kanal ${channelId} (${profile}, ${gpu})`, 'success');
                     
-                    // Update channel data immediately to store selected options
+                    // Update channel data to store selected options
                     const channel = channels.find(c => c.id === channelId);
                     if (channel) {
                         channel.profile = profile;
                         channel.gpu = gpu;
                         channel.isActive = true;
-                        
-                        // Set appropriate flags immediately
-                        if (isPassthrough) {
-                            channel.passthrough = true;
-                            channel.transcoding = false;
-                        } else {
-                            channel.passthrough = false;
-                            channel.transcoding = true;
-                        }
-                        
-                        console.log(`🔥 Updated channel ${channelId} locally: active=${channel.isActive}, transcoding=${channel.transcoding}, passthrough=${channel.passthrough}`);
+                        channel.transcoding = true;
                     }
                     
-                    // Immediate re-render to show status change
+                    // Re-render to update UI
                     renderChannels();
                 } else {
                     throw new Error(result.error);
                 }
             } catch (error) {
-                console.error(`🔥 Error starting stream:`, error);
                 showNotification(`Greška pokretanja: ${error.message}`, 'error');
             }
         }
@@ -1079,16 +901,6 @@
                 
                 if (response.ok) {
                     showNotification(`Stream zaustavljen za kanal ${channelId}`, 'info');
-                    
-                    // Update local channel state
-                    const channel = channels.find(c => c.id === channelId);
-                    if (channel) {
-                        channel.isActive = false;
-                        channel.transcoding = false;
-                    }
-                    
-                    // Manual re-render to show immediate feedback
-                    setTimeout(() => renderChannels(), 500);
                 } else {
                     throw new Error(result.error);
                 }
@@ -1098,19 +910,7 @@
         }
         
         function openStream(channelId) {
-            const channel = channels.find(c => c.id === channelId);
-            if (!channel) {
-                showNotification('Kanal nije pronađen', 'error');
-                return;
-            }
-            
-            // Use channel number if available for HLS URLs
-            const streamId = channel.channelNumber || channelId;
-            const streamUrl = channel.passthrough ? 
-                channel.url : 
-                `http://${window.location.hostname}:${serverConfig.streaming.port}/streams/${streamId}/playlist.m3u8`;
-            
-            console.log('Opening stream URL:', streamUrl);
+            const streamUrl = `/stream/${channelId}/playlist.m3u8`;
             window.open(streamUrl, '_blank');
         }
         
@@ -1212,12 +1012,20 @@
         refreshBtn.addEventListener('click', refreshPlaylist);
         document.getElementById('start-all-btn').addEventListener('click', startAllStreams);
         document.getElementById('stop-all-btn').addEventListener('click', stopAllStreams);
+        autoRefreshToggle.addEventListener('change', (e) => {
+            autoRefreshEnabled = e.target.checked;
+            if (autoRefreshEnabled) {
+                showNotification('Auto-osvježavanje uključeno', 'info');
+            } else {
+                showNotification('Auto-osvježavanje isključeno', 'info');
+            }
+        });
         
         // Initialize
         Promise.all([
             fetchProfiles(),
             fetchGPUInfo(),
-            fetchChannels()
+            refreshPlaylist()
         ]).then(() => {
             console.log('Initialization complete');
             startAutoRefresh();
@@ -1243,7 +1051,8 @@
                     showNotification(`UDP stream pokrenut za kanal ${channelId} (${profile}, ${gpu})`, 'success');
                     showNotification(`UDP URL: ${result.simpleUdpUrl || result.udpUrl}`, 'info');
                     
-                    // Socket.io will handle UI updates via channelsUpdated event
+                    // Re-render to update UI
+                    renderChannels();
                 } else {
                     throw new Error(result.error);
                 }
@@ -1263,25 +1072,14 @@
                 if (response.ok) {
                     showNotification(`UDP stream zaustavljen za kanal ${channelId}`, 'success');
                     
-                    // Socket.io will handle UI updates via channelsUpdated event
+                    // Re-render to update UI
+                    renderChannels();
                 } else {
                     throw new Error(result.error);
                 }
             } catch (error) {
                 showNotification(`Greška zaustavljanja UDP: ${error.message}`, 'error');
             }
-        }
-        
-        function copyToClipboard(text) {
-            if (!text) return;
-            
-            navigator.clipboard.writeText(text)
-                .then(() => {
-                    showNotification('Link kopiran u clipboard', 'success');
-                })
-                .catch(err => {
-                    showNotification('Nije moguće kopirati: ' + err, 'error');
-                });
         }
         
         function copyUdpUrl(url) {
@@ -1299,13 +1097,6 @@
         function openInVlc(url) {
             if (!url) return;
             
-            console.log('Opening in VLC:', url);
-            
-            // Make sure URL is correct format
-            if (url.startsWith('/')) {
-                url = `http://${window.location.hostname}:${serverConfig.streaming.port}${url}`;
-            }
-            
             fetch(`/api/open-vlc?url=${encodeURIComponent(url)}`, {
                 method: 'GET'
             })
@@ -1314,49 +1105,21 @@
                 if (data.success) {
                     showNotification('Stream otvoren u VLC playeru', 'success');
                 } else {
-                    throw new Error(data.error || 'Nepoznata greška');
+                    throw new Error(data.error);
                 }
             })
             .catch(error => {
                 showNotification(`Greška otvaranja VLC: ${error.message}`, 'error');
-                console.error('VLC error:', error);
             });
         }
         
         function startAutoRefresh() {
-            // Auto-refresh disabled to prevent UI interference during user interactions
-            console.log('Auto-refresh disabled to improve user experience');
-            showNotification('Auto-refresh isključen za bolju kontrolu', 'info');
-        }
-        
-        function showNotification(message, type = 'info') {
-            // Simple notification system - can be enhanced with toast library
-            const alertClass = type === 'success' ? 'alert-success' : 
-                              type === 'error' ? 'alert-danger' : 
-                              type === 'warning' ? 'alert-warning' : 
-                              'alert-info';
-            
-            const notification = document.createElement('div');
-            notification.className = `alert ${alertClass} alert-dismissible fade show`;
-            notification.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; max-width: 400px;';
-            notification.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            
-            document.body.appendChild(notification);
-            
-            // Auto-remove after 5 seconds
-            setTimeout(() => {
-                if (notification.parentElement) {
-                    notification.remove();
-                }
-            }, 5000);
-        }
-        
-        function updateProgressNotification(data) {
-            // Simple progress notification for transcoding
-            console.log('Progress:', data);
+            stopAutoRefresh(); // Ensure any existing interval is cleared
+            autoRefreshInterval = setInterval(() => {
+                console.log('Auto-refreshing channels...');
+                refreshPlaylist();
+            }, 30000); // Refresh every 30 seconds
+            showNotification('Auto-osvježavanje uključeno', 'info');
         }
         
         function stopAutoRefresh() {
@@ -1364,120 +1127,6 @@
             autoRefreshInterval = null;
             showNotification('Auto-osvježavanje isključeno', 'info');
         }
-        
-        function manualRefreshChannels() {
-            console.log('Manual refresh triggered');
-            renderChannels();
-            updateStats();
-            showNotification('Kanali osveženi', 'info');
-        }
-        
-        // Function to check if a stream is available
-        async function checkStreamAvailability(url) {
-            try {
-                const response = await fetch(url, { method: 'HEAD' });
-                return response.ok;
-            } catch (error) {
-                console.error('Error checking stream:', error);
-                return false;
-            }
-        }
-        
-        // Fetch server configuration
-        async function fetchServerConfig() {
-            try {
-                const response = await fetch('/api/server-config');
-                if (response.ok) {
-                    serverConfig = await response.json();
-                    console.log('Server config loaded:', serverConfig);
-                    
-                    // Ensure config is properly structured and has default values
-                    if (!serverConfig.tvheadend || !serverConfig.tvheadend.host) {
-                        serverConfig.tvheadend = { host: '192.168.100.3' };
-                    }
-                    if (!serverConfig.streaming || !serverConfig.streaming.port) {
-                        serverConfig.streaming = { port: 8081 };
-                    }
-                    
-                    // Force refresh channels to apply config
-                    renderChannels();
-                } else {
-                    console.error('Failed to load server config');
-                    // Set defaults if config loading fails
-                    serverConfig = {
-                        tvheadend: { host: '192.168.100.3' },
-                        streaming: { port: 8081 }
-                    };
-                }
-            } catch (error) {
-                console.error('Error fetching server config:', error);
-                // Set defaults if config loading fails
-                serverConfig = {
-                    tvheadend: { host: '192.168.100.3' },
-                    streaming: { port: 8081 }
-                };
-            }
-        }
-        
-        // Download functionality
-        function downloadChannelList() {
-            const channelData = channels.map(channel => ({
-                id: channel.id,
-                channelNumber: channel.channelNumber,
-                name: channel.name,
-                group: channel.group,
-                url: channel.url,
-                channelNumberUrl: channel.channelNumberUrl
-            }));
-            
-            const dataStr = JSON.stringify(channelData, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(dataBlob);
-            
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `tvheadend-channels-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        }
-        
-        function downloadActiveStreams() {
-            const activeChannels = channels.filter(channel => channel.isActive || channel.transcoding || channel.udpStreaming);
-            const streamData = activeChannels.map(channel => ({
-                id: channel.id,
-                channelNumber: channel.channelNumber,
-                name: channel.name,
-                profile: channel.profile,
-                gpu: channel.gpu,
-                transcoding: channel.transcoding,
-                passthrough: channel.passthrough,
-                udpStreaming: channel.udpStreaming,
-                udpUrl: channel.udpUrl,
-                bandwidth: channel.bandwidth,
-                totalData: channel.totalData
-            }));
-            
-            const dataStr = JSON.stringify(streamData, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(dataBlob);
-            
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `active-streams-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        }
-        
-        // Bind download events
-        document.getElementById('downloadChannelList').addEventListener('click', downloadChannelList);
-        document.getElementById('downloadActiveStreams').addEventListener('click', downloadActiveStreams);
-        
-        // Call this function on page load
-        fetchServerConfig();
     </script>
     </div> <!-- End main-content -->
 </body>
