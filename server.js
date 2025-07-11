@@ -2181,6 +2181,53 @@ app.get('/api/export-active-streams', (req, res) => {
     }
 });
 
+// Update system from GitHub
+app.post('/api/update-system', async (req, res) => {
+    try {
+        // Execute the update.sh script
+        const updateProcess = spawn('./update.sh', [], {
+            cwd: __dirname,
+            stdio: 'pipe'
+        });
+        
+        let stdoutData = '';
+        let stderrData = '';
+        
+        updateProcess.stdout.on('data', (data) => {
+            stdoutData += data.toString();
+            console.log(`Update stdout: ${data.toString().trim()}`);
+        });
+        
+        updateProcess.stderr.on('data', (data) => {
+            stderrData += data.toString();
+            console.error(`Update stderr: ${data.toString().trim()}`);
+        });
+        
+        updateProcess.on('close', (code) => {
+            if (code === 0) {
+                res.json({ 
+                    success: true, 
+                    message: 'System updated successfully',
+                    output: stdoutData
+                });
+            } else {
+                res.status(500).json({ 
+                    success: false, 
+                    error: `Update failed with code ${code}`,
+                    output: stdoutData,
+                    errorOutput: stderrData
+                });
+            }
+        });
+    } catch (error) {
+        console.error('Error updating system:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
+        });
+    }
+});
+
 // Start the server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
