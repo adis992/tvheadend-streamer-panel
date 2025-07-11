@@ -1237,9 +1237,13 @@
         document.getElementById('downloadChannelList').addEventListener('click', downloadChannelList);
         document.getElementById('downloadActiveStreams').addEventListener('click', downloadActiveStreams);
         
+        // Bind refresh playlist button
+        document.getElementById('refresh-btn').addEventListener('click', refreshPlaylist);
+        
         // Call this function on page load
         fetchServerConfig();
     </script>
     </div> <!-- End main-content -->
 </body>
 </html>
+
