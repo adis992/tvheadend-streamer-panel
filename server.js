@@ -890,6 +890,8 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
         io.emit('streamStarted', { channelId, profile, gpu: selectedGPU, passthrough: true });
         io.emit('channelsUpdated', channels);
         
+        // Save state after starting
+        saveActiveStreamsToFile();
         return {
             channelId,
             streamUrl: passthroughUrl,
@@ -1067,6 +1069,8 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
     io.emit('streamStarted', { channelId, profile, gpu: selectedGPU, passthrough: false });
     io.emit('channelsUpdated', channels);
     
+    // Save state after starting
+    saveActiveStreamsToFile();
     return {
         channelId,
         streamUrl: `/stream/${channelId}/playlist.m3u8`,
@@ -1102,6 +1106,8 @@ function stopTranscoding(channelId) {
         io.emit('streamStopped', { channelId });
         io.emit('channelsUpdated', channels);
         
+        // Save state after stopping
+        saveActiveStreamsToFile();
         return true;
     }
     return false;
@@ -1278,6 +1284,8 @@ async function startUdpStream(channelId, profile = 'passthrough', gpu = 'auto', 
     });
     io.emit('channelsUpdated', channels);
     
+    // Save state after starting
+    saveActiveStreamsToFile();
     return {
         success: true,
         channelId,
@@ -1337,6 +1345,8 @@ function stopUdpStream(channelId) {
         io.emit('udpStreamStopped', { channelId });
         io.emit('channelsUpdated', channels);
         
+        // Save state after stopping
+        saveActiveStreamsToFile();
         return true;
     }
     return false;
@@ -2091,7 +2101,8 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`🚀 TVHeadend Streamer Panel running on port ${PORT}`);
     console.log(`🔗 Access at: http://localhost:${PORT}`);
-    
     console.log('Server started successfully');
+    // Restore active streams after reboot
+    restoreActiveStreamsFromFile();
 });
 
