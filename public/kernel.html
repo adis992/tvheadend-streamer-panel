@@ -271,29 +271,32 @@
             <div class="col-12 mb-4">
                 <div class="card">
                     <div class="card-header">
-                        <h5><i class="fas fa-download"></i> Install Kernel 5.4.230</h5>
+                        <h5><i class="fas fa-download"></i> Kernel Management</h5>
                     </div>
                     <div class="card-body">
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle"></i>
-                            This will install Linux kernel 5.4.230 for better hardware compatibility. The process includes downloading kernel packages and updating GRUB.
+                            Install specific kernel version or latest HWE kernel for better hardware compatibility.
                         </div>
                         
                         <div class="row">
                             <div class="col-lg-6">
-                                <h6>Installation Steps:</h6>
-                                <ol>
-                                    <li>Download kernel packages</li>
-                                    <li>Install kernel packages</li>
+                                <h6>Installation Options:</h6>
+                                <ul>
+                                    <li><strong>Specific Kernel:</strong> Linux 5.15.0-91-generic</li>
+                                    <li><strong>Latest HWE:</strong> Hardware Enablement kernel</li>
                                     <li>Update GRUB configuration</li>
                                     <li>Set as default kernel</li>
                                     <li>Optional: Reboot system</li>
-                                </ol>
+                                </ul>
                             </div>
                             <div class="col-lg-6">
                                 <div class="d-grid gap-2">
-                                    <button class="btn btn-success btn-lg" onclick="installKernel()" id="install-btn">
-                                        <i class="fas fa-download"></i> Install Kernel 5.4.230
+                                    <button class="btn btn-success btn-lg" onclick="installSpecificKernel()" id="install-specific-btn">
+                                        <i class="fas fa-download"></i> Install Kernel 5.15.0-91
+                                    </button>
+                                    <button class="btn btn-primary btn-lg" onclick="installLatestKernel()" id="install-latest-btn">
+                                        <i class="fas fa-sync-alt"></i> Install Latest HWE Kernel
                                     </button>
                                     <button class="btn btn-warning" onclick="setDefaultKernel()" id="default-btn" style="display: none;">
                                         <i class="fas fa-cog"></i> Set as Default
@@ -396,79 +399,76 @@
             }
         }
         
-        // Install kernel
-        async function installKernel() {
+        // Install specific kernel
+        async function installSpecificKernel() {
             if (installationInProgress) return;
             
-            if (!confirm('Are you sure you want to install kernel 5.4.230? This process may take several minutes.')) {
+            if (!confirm('Da li želiš da instaliraš kernel 5.15.0-91-generic? Ovaj proces može potrajati nekoliko minuta.')) {
                 return;
             }
             
+            await startKernelInstallation('specific', 'sudo apt install linux-image-5.15.0-91-generic linux-headers-5.15.0-91-generic -y');
+        }
+        
+        // Install latest HWE kernel
+        async function installLatestKernel() {
+            if (installationInProgress) return;
+            
+            if (!confirm('Da li želiš da instaliraš najnoviji HWE kernel? Ovaj proces može potrajati nekoliko minuta.')) {
+                return;
+            }
+            
+            await startKernelInstallation('latest', 'sudo apt install --install-recommends linux-generic-hwe-22.04 -y');
+        }
+        
+        // Generic kernel installation function
+        async function startKernelInstallation(type, command) {
             installationInProgress = true;
-            const installBtn = document.getElementById('install-btn');
+            const specificBtn = document.getElementById('install-specific-btn');
+            const latestBtn = document.getElementById('install-latest-btn');
             const progressContainer = document.getElementById('progress-container');
             const progressBar = document.getElementById('progress-bar');
             const progressText = document.getElementById('progress-text');
             const installLog = document.getElementById('install-log');
             
-            installBtn.disabled = true;
-            installBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Installing...';
+            specificBtn.disabled = true;
+            latestBtn.disabled = true;
+            
+            if (type === 'specific') {
+                specificBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Installing...';
+            } else {
+                latestBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Installing...';
+            }
+            
             progressContainer.style.display = 'block';
             
             try {
                 // Clear log
-                installLog.textContent = 'Starting kernel installation...\n';
+                installLog.textContent = `Starting ${type} kernel installation...\n`;
                 
                 // Start installation
                 const response = await fetch('/api/kernel/install', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ version: '5.4.230' })
+                    body: JSON.stringify({ 
+                        type: type,
+                        command: command
+                    })
                 });
                 
                 if (!response.ok) {
                     throw new Error('Installation failed');
                 }
                 
-                // Monitor installation progress
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    
-                    const chunk = decoder.decode(value);
-                    const lines = chunk.split('\n');
-                    
-                    for (const line of lines) {
-                        if (line.trim()) {
-                            try {
-                                const data = JSON.parse(line);
-                                
-                                if (data.progress) {
-                                    progressBar.style.width = data.progress + '%';
-                                    progressText.textContent = data.message || 'Installing...';
-                                }
-                                
-                                if (data.log) {
-                                    installLog.textContent += data.log + '\n';
-                                    installLog.scrollTop = installLog.scrollHeight;
-                                }
-                                
-                                if (data.completed) {
-                                    progressBar.style.width = '100%';
-                                    progressText.textContent = 'Installation completed!';
-                                    document.getElementById('default-btn').style.display = 'block';
-                                    document.getElementById('reboot-btn').style.display = 'block';
-                                }
-                            } catch (e) {
-                                // Non-JSON line, treat as log
-                                installLog.textContent += line + '\n';
-                                installLog.scrollTop = installLog.scrollHeight;
-                            }
-                        }
-                    }
+                const data = await response.json();
+                if (data.success) {
+                    installLog.textContent += 'Installation completed successfully!\n';
+                    progressBar.style.width = '100%';
+                    progressText.textContent = 'Installation completed!';
+                    document.getElementById('default-btn').style.display = 'block';
+                    document.getElementById('reboot-btn').style.display = 'block';
+                } else {
+                    throw new Error(data.error || 'Installation failed');
                 }
                 
             } catch (error) {
@@ -476,9 +476,16 @@
                 progressText.textContent = 'Installation failed!';
             } finally {
                 installationInProgress = false;
-                installBtn.disabled = false;
-                installBtn.innerHTML = '<i class="fas fa-download"></i> Install Kernel 5.4.230';
+                specificBtn.disabled = false;
+                latestBtn.disabled = false;
+                specificBtn.innerHTML = '<i class="fas fa-download"></i> Install Kernel 5.15.0-91';
+                latestBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Install Latest HWE Kernel';
             }
+        }
+        
+        // Install kernel (legacy function - keeping for compatibility)
+        async function installKernel() {
+            return await installSpecificKernel();
         }
         
         // Set default kernel

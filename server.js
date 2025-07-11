@@ -2110,70 +2110,96 @@ app.get('/api/kernel/list', async (req, res) => {
 
 app.post('/api/kernel/install', async (req, res) => {
     try {
-        const { version = '5.4.230' } = req.body;
+        const { type = 'latest', command } = req.body;
         
         // Send initial response
-        res.json({ success: true, message: 'Kernel installation started' });
+        res.json({ success: true, message: `Kernel installation (${type}) started` });
         
-        // Create kernel directory and start installation
-        const kernelDir = `~/kernel-${version}`;
-        const commands = [
-            `mkdir -p ${kernelDir} && cd ${kernelDir}`,
-            `wget https://kernel.ubuntu.com/~kernel-ppa/mainline/v${version}/amd64/linux-headers-${version}-0504230_${version}-0504230.202301240741_all.deb`,
-            `wget https://kernel.ubuntu.com/~kernel-ppa/mainline/v${version}/amd64/linux-headers-${version}-0504230-generic_${version}-0504230.202301240741_amd64.deb`,
-            `wget https://kernel.ubuntu.com/~kernel-ppa/mainline/v${version}/amd64/linux-modules-${version}-0504230-generic_${version}-0504230.202301240741_amd64.deb`,
-            `wget https://kernel.ubuntu.com/~kernel-ppa/mainline/v${version}/amd64/linux-image-unsigned-${version}-0504230-generic_${version}-0504230.202301240741_amd64.deb`,
-            'sudo dpkg -i *.deb',
-            'sudo update-grub'
-        ];
+        let installCommand;
         
-        let commandIndex = 0;
+        if (command) {
+            // Use provided command
+            installCommand = command;
+        } else if (type === 'specific') {
+            // Install specific kernel
+            installCommand = 'sudo apt install linux-image-5.15.0-91-generic linux-headers-5.15.0-91-generic -y';
+        } else {
+            // Install latest HWE kernel (default)
+            installCommand = 'sudo apt install --install-recommends linux-generic-hwe-22.04 -y';
+        }
         
-        function runNextCommand() {
-            if (commandIndex >= commands.length) {
-                io.emit('kernelInstallComplete', { 
-                    success: true, 
-                    message: 'Kernel installation completed. Reboot required.',
-                    version 
+        console.log(`Starting ${type} kernel installation with command: ${installCommand}`);
+        
+        // Update package list first
+        const updateProcess = spawn('sudo', ['apt', 'update'], {
+            stdio: 'pipe'
+        });
+        
+        updateProcess.on('close', (updateCode) => {
+            if (updateCode !== 0) {
+                io.emit('kernelInstallError', {
+                    error: 'Failed to update package list',
+                    command: 'sudo apt update'
                 });
                 return;
             }
             
-            const command = commands[commandIndex];
-            commandIndex++;
-            
-            io.emit('kernelInstallProgress', {
-                step: commandIndex,
-                total: commands.length,
-                command,
-                message: `Executing: ${command}`
+            // Start kernel installation
+            const installProcess = spawn('bash', ['-c', installCommand], {
+                stdio: 'pipe'
             });
             
-            const process = exec(command, { timeout: 300000 }, (error, stdout, stderr) => {
-                if (error) {
-                    io.emit('kernelInstallError', {
-                        error: error.message,
-                        command,
-                        stderr: stderr
-                    });
-                    return;
-                }
-                
+            installProcess.stdout.on('data', (data) => {
+                const output = data.toString();
+                console.log('Kernel install output:', output);
                 io.emit('kernelInstallProgress', {
-                    step: commandIndex,
-                    total: commands.length,
-                    command,
-                    message: `Completed: ${command}`,
-                    output: stdout
+                    type: type,
+                    command: installCommand,
+                    message: output.trim(),
+                    output: output
                 });
-                
-                // Continue with next command
-                setTimeout(runNextCommand, 1000);
             });
-        }
-        
-        // Start installation
-        runNextCommand();
+            
+            installProcess.stderr.on('data', (data) => {
+                const output = data.toString();
+                console.log('Kernel install stderr:', output);
+                io.emit('kernelInstallProgress', {
+                    type: type,
+                    command: installCommand,
+                    message: output.trim(),
+                    output: output,
+                    isError: false // apt uses stderr for normal output
+                });
+            });
+            
+            installProcess.on('close', (code) => {
+                if (code === 0) {
+                    console.log(`${type} kernel installation completed successfully`);
+                    
+                    // Update GRUB
+                    const grubProcess = spawn('sudo', ['update-grub'], {
+                        stdio: 'pipe'
+                    });
+                    
+                    grubProcess.on('close', (grubCode) => {
+                        io.emit('kernelInstallComplete', {
+                            success: true,
+                            type: type,
+                            message: `${type} kernel installation completed. GRUB updated. Reboot recommended.`,
+                            grubUpdateSuccess: grubCode === 0
+                        });
+                    });
+                    
+                } else {
+                    console.error(`${type} kernel installation failed with code ${code}`);
+                    io.emit('kernelInstallError', {
+                        error: `Kernel installation failed with exit code ${code}`,
+                        type: type,
+                        command: installCommand
+                    });
+                }
+            });
+        });
         
     } catch (error) {
         console.error('Error starting kernel installation:', error);
