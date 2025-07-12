@@ -404,7 +404,7 @@ async function checkSystemComponents() {
     return components;
 }
 
-async function checkCommand(command) {
+async function checkCommand(command = '') {
     return new Promise((resolve) => {
         exec(command, (error, stdout, stderr) => {
             if (error) {
@@ -1038,17 +1038,21 @@ function getFFmpegEncoder(gpu, codec = 'h264') {
 async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto') {
     console.log('Starting transcoding for channel:', channelId, 'profile:', profile, 'gpu:', gpu);
     
+    // Convert channelId to number since we use tvg-chno (which is numeric)
+    const channelIdNum = parseInt(channelId);
+    
     // Find channel by ID (now using channel numbers as IDs)
-    const channel = channels.find(c => c.id == channelId);
+    const channel = channels.find(c => c.id == channelIdNum);
     if (!channel) {
         throw new Error(`Channel not found with ID: ${channelId}`);
     }
     
     console.log(`Found channel: ${channel.name} (Number: ${channel.channelNumber})`);
     
-    // Stop existing stream if running
-    if (activeStreams.has(channelId)) {
-        stopTranscoding(channelId);
+    // Stop existing stream if running - use number as key
+    if (activeStreams.has(channelIdNum)) {
+        console.log(`Stopping existing stream for channel ${channelIdNum}`);
+        stopTranscoding(channelIdNum);
     }
     
     // Determine GPU to use
@@ -1104,7 +1108,7 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
         // Save state after starting
         saveActiveStreamsToFile();
         return {
-            channelId,
+            channelId: channelIdNum,
             streamUrl: passthroughUrl,
             channelNumber: channel.channelNumber,
             profile,
@@ -1114,7 +1118,7 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
     }
     
     // TRANSCODING MODE - create output directory and FFmpeg process
-    const outputDir = path.join(config.streaming.outputDir, channelId.toString());
+    const outputDir = path.join(config.streaming.outputDir, channelIdNum.toString());
     await fs.ensureDir(outputDir);
     
     // Use channelNumberUrl with the correct TVHeadend profile
@@ -1229,7 +1233,7 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
         // Emit progress updates
         if (output.includes('frame=')) {
             io.emit('transcodingProgress', {
-                channelId,
+                channelId: channelIdNum,
                 status: 'running',
                 output: output,
                 encoder: usingFallback ? encoder.fallback.video : encoder.video
@@ -1239,16 +1243,16 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
     
     function attachEventListeners() {
         ffmpeg.stdout.on('data', (data) => {
-            console.log(`FFmpeg stdout [${channelId}]:`, data.toString());
+            console.log(`FFmpeg stdout [${channelIdNum}]:`, data.toString());
         });
         
         ffmpeg.on('close', (code) => {
-            console.log(`FFmpeg process [${channelId}] exited with code ${code}`);
-            activeStreams.delete(channelId);
-            streamStats.delete(channelId);
+            console.log(`FFmpeg process [${channelIdNum}] exited with code ${code}`);
+            activeStreams.delete(channelIdNum);
+            streamStats.delete(channelIdNum);
             
             // Update channel status
-            const channelIndex = channels.findIndex(c => c.id == channelId);
+            const channelIndex = channels.findIndex(c => c.id == channelIdNum);
             if (channelIndex !== -1) {
                 channels[channelIndex].isActive = false;
                 channels[channelIndex].transcoding = false;
@@ -1256,13 +1260,13 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
                 channels[channelIndex].bandwidth = 0;
             }
             
-            io.emit('streamStopped', { channelId, code });
+            io.emit('streamStopped', { channelId: channelIdNum, code });
             io.emit('channelsUpdated', channels);
         });
         
         ffmpeg.on('error', (error) => {
-            console.error(`FFmpeg error [${channelId}]:`, error);
-            io.emit('transcodingError', { channelId, error: error.message });
+            console.error(`FFmpeg error [${channelIdNum}]:`, error);
+            io.emit('transcodingError', { channelId: channelIdNum, error: error.message });
         });
     }
     
@@ -1270,7 +1274,7 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
     attachEventListeners();
     
     // Store stream info
-    activeStreams.set(channelId, {
+    activeStreams.set(channelIdNum, {
         process: ffmpeg,
         profile,
         gpu: selectedGPU,
@@ -1281,7 +1285,7 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
     });
     
     // Initialize bandwidth monitoring
-    streamStats.set(channelId, {
+    streamStats.set(channelIdNum, {
         bandwidth: 0,
         totalData: 0,
         lastCheck: Date.now(),
@@ -1289,7 +1293,7 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
     });
     
     // Update channel status
-    const channelIndex = channels.findIndex(c => c.id == channelId);
+    const channelIndex = channels.findIndex(c => c.id == channelIdNum);
     if (channelIndex !== -1) {
         channels[channelIndex].isActive = true;
         channels[channelIndex].transcoding = true;
@@ -1298,14 +1302,14 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
         channels[channelIndex].gpu = selectedGPU;
     }
     
-    io.emit('streamStarted', { channelId, profile, gpu: selectedGPU, passthrough: false });
+    io.emit('streamStarted', { channelId: channelIdNum, profile, gpu: selectedGPU, passthrough: false });
     io.emit('channelsUpdated', channels);
     
     // Save state after starting
     saveActiveStreamsToFile();
     return {
-        channelId,
-        streamUrl: `/stream/${channelId}/playlist.m3u8`,
+        channelId: channelIdNum,
+        streamUrl: `/stream/${channelIdNum}/playlist.m3u8`,
         channelNumber: channel.channelNumber,
         profile,
         gpu: selectedGPU,
@@ -1315,18 +1319,19 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
 
 // Stop transcoding stream
 function stopTranscoding(channelId) {
-    const stream = activeStreams.get(channelId);
+    const channelIdNum = parseInt(channelId);
+    const stream = activeStreams.get(channelIdNum);
     if (stream) {
         // Only kill FFmpeg process if it exists (not for passthrough)
         if (stream.process) {
             stream.process.kill('SIGTERM');
         }
         
-        activeStreams.delete(channelId);
-        streamStats.delete(channelId); // Remove bandwidth stats
+        activeStreams.delete(channelIdNum);
+        streamStats.delete(channelIdNum); // Remove bandwidth stats
         
         // Update channel status
-        const channelIndex = channels.findIndex(c => c.id == channelId);
+        const channelIndex = channels.findIndex(c => c.id == channelIdNum);
         if (channelIndex !== -1) {
             channels[channelIndex].isActive = false;
             channels[channelIndex].transcoding = false;
@@ -1335,7 +1340,7 @@ function stopTranscoding(channelId) {
             channels[channelIndex].totalData = 0;
         }
         
-        io.emit('streamStopped', { channelId });
+        io.emit('streamStopped', { channelId: channelIdNum });
         io.emit('channelsUpdated', channels);
         
         // Save state after stopping
@@ -1347,14 +1352,15 @@ function stopTranscoding(channelId) {
 
 // Start UDP streaming
 async function startUdpStream(channelId, profile = 'passthrough', gpu = 'auto', udpOptions = {}) {
-    console.log('Starting UDP stream for channel:', channelId);
+    const channelIdNum = parseInt(channelId);
+    console.log('Starting UDP stream for channel:', channelIdNum);
     
-    const channel = channels.find(c => c.id == channelId);
+    const channel = channels.find(c => c.id == channelIdNum);
     if (!channel) throw new Error('Channel not found');
     
     // Stop existing UDP stream if running
-    if (activeUdpStreams.has(channelId)) {
-        stopUdpStream(channelId);
+    if (activeUdpStreams.has(channelIdNum)) {
+        stopUdpStream(channelIdNum);
     }
     
     // Setup UDP destination options
@@ -1377,14 +1383,14 @@ async function startUdpStream(channelId, profile = 'passthrough', gpu = 'auto', 
         udpPort++;
         portInUse = false;
         for (const [existingChannelId, existingStream] of activeUdpStreams) {
-            if (existingChannelId !== channelId && existingStream.udpUrl && existingStream.udpUrl.includes(`:${udpPort}`)) {
+            if (existingChannelId !== channelIdNum && existingStream.udpUrl && existingStream.udpUrl.includes(`:${udpPort}`)) {
                 portInUse = true;
                 break;
             }
         }
     }
     
-    console.log(`Using UDP port ${udpPort} for channel ${channelId}`);
+    console.log(`Using UDP port ${udpPort} for channel ${channelIdNum}`);
     
     // Generate UDP URLs with @ prefix for multicast
     const udpOutputUrl = `udp://@${udpIp}:${udpPort}?pkt_size=${udpConfig.mtu}&ttl=${udpConfig.ttl}`;
@@ -1485,21 +1491,21 @@ async function startUdpStream(channelId, profile = 'passthrough', gpu = 'auto', 
         if (output.includes('Connection refused') || 
             output.includes('Network is unreachable') ||
             output.includes('No route to host')) {
-            console.error(`UDP stream network error for channel ${channelId}, will retry`);
+            console.error(`UDP stream network error for channel ${channelIdNum}, will retry`);
         }
     });
     
     ffmpeg.on('close', (code) => {
-        console.log(`UDP stream closed with code ${code} for channel ${channelId}`);
+        console.log(`UDP stream closed with code ${code} for channel ${channelIdNum}`);
         if (startupTimeout) {
             clearTimeout(startupTimeout);
             startupTimeout = null;
         }
-        handleUdpStreamClose(code, channelId);
+        handleUdpStreamClose(code, channelIdNum);
     });
     
     ffmpeg.on('error', (error) => {
-        console.error(`UDP FFmpeg error [${channelId}]:`, error);
+        console.error(`UDP FFmpeg error [${channelIdNum}]:`, error);
         if (startupTimeout) {
             clearTimeout(startupTimeout);
             startupTimeout = null;
@@ -1507,9 +1513,9 @@ async function startUdpStream(channelId, profile = 'passthrough', gpu = 'auto', 
     });
     
     // Store UDP stream
-    activeUdpStreams.set(channelId, {
+    activeUdpStreams.set(channelIdNum, {
         process: ffmpeg,
-        channelId: channelId,
+        channelId: channelIdNum,
         profile: profile,
         gpu: selectedGPU,
         udpUrl: udpOutputUrl,
@@ -1519,7 +1525,7 @@ async function startUdpStream(channelId, profile = 'passthrough', gpu = 'auto', 
     });
     
     // Update channel status
-    const channelIndex = channels.findIndex(c => c.id == channelId);
+    const channelIndex = channels.findIndex(c => c.id == channelIdNum);
     if (channelIndex !== -1) {
         channels[channelIndex].isActive = true;
         channels[channelIndex].udpStreaming = true;
@@ -1529,7 +1535,7 @@ async function startUdpStream(channelId, profile = 'passthrough', gpu = 'auto', 
     
     // Notify clients
     io.emit('udpStreamStarted', { 
-        channelId,
+        channelId: channelIdNum,
         channelNumber: channel.channelNumber,
         profile: profile,
         gpu: selectedGPU,
@@ -1542,7 +1548,7 @@ async function startUdpStream(channelId, profile = 'passthrough', gpu = 'auto', 
     saveActiveStreamsToFile();
     return {
         success: true,
-        channelId,
+        channelId: channelIdNum,
         channelNumber: channel.channelNumber,
         profile: profile,
         gpu: selectedGPU,
@@ -1553,10 +1559,11 @@ async function startUdpStream(channelId, profile = 'passthrough', gpu = 'auto', 
 
 // Handle UDP stream close event
 function handleUdpStreamClose(code, channelId) {
-    console.log(`UDP stream closed with code ${code} for channel ${channelId}`);
+    const channelIdNum = parseInt(channelId);
+    console.log(`UDP stream closed with code ${code} for channel ${channelIdNum}`);
     
     // Update channel status
-    const channelIndex = channels.findIndex(c => c.id == channelId);
+    const channelIndex = channels.findIndex(c => c.id == channelIdNum);
     if (channelIndex !== -1) {
         channels[channelIndex].udpStreaming = false;
         channels[channelIndex].udpUrl = null;
@@ -1569,22 +1576,23 @@ function handleUdpStreamClose(code, channelId) {
     }
     
     // Remove stream from active streams
-    activeUdpStreams.delete(channelId);
+    activeUdpStreams.delete(channelIdNum);
     
     // Notify clients
-    io.emit('udpStreamStopped', { channelId });
+    io.emit('udpStreamStopped', { channelId: channelIdNum });
     io.emit('channelsUpdated', channels);
 }
 
 // Stop UDP stream
 function stopUdpStream(channelId) {
-    const stream = activeUdpStreams.get(channelId);
+    const channelIdNum = parseInt(channelId);
+    const stream = activeUdpStreams.get(channelIdNum);
     if (stream) {
         stream.process.kill('SIGTERM');
-        activeUdpStreams.delete(channelId);
+        activeUdpStreams.delete(channelIdNum);
         
         // Update channel status
-        const channelIndex = channels.findIndex(c => c.id == channelId);
+        const channelIndex = channels.findIndex(c => c.id == channelIdNum);
         if (channelIndex !== -1) {
             channels[channelIndex].udpStreaming = false;
             channels[channelIndex].udpUrl = null;
@@ -1596,7 +1604,7 @@ function stopUdpStream(channelId) {
             }
         }
         
-        io.emit('udpStreamStopped', { channelId });
+        io.emit('udpStreamStopped', { channelId: channelIdNum });
         io.emit('channelsUpdated', channels);
         
         // Save state after stopping
@@ -1887,21 +1895,28 @@ app.post('/api/save-channel-settings/:channelId', (req, res) => {
         
         console.log(`📝 Saving channel settings: ${channelId} - profile: ${profile}, gpu: ${gpu}`);
         
-        // Find and update channel in the channels array
-        const channelIndex = channels.findIndex(c => c.id === channelId);
+        // Convert channelId to number for comparison (since tvg-chno is numeric)
+        const channelIdNum = parseInt(channelId);
+        
+        // Find and update channel in the channels array - use == for loose comparison
+        const channelIndex = channels.findIndex(c => c.id == channelIdNum);
         if (channelIndex !== -1) {
             channels[channelIndex].profile = profile || 'passthrough';
             channels[channelIndex].gpu = gpu || 'auto';
+            
+            console.log(`📝 Successfully updated channel ${channelIdNum}: profile=${profile}, gpu=${gpu}`);
             
             // Emit updated channels to all clients
             io.emit('channelsUpdated', channels);
             
             res.json({ 
                 success: true, 
-                message: `Channel ${channelId} settings saved successfully`,
+                message: `Channel ${channelIdNum} settings saved successfully`,
                 channel: channels[channelIndex]
             });
         } else {
+            console.error(`📝 Channel not found: ${channelId} (parsed as number: ${channelIdNum})`);
+            console.log(`📝 Available channels: ${channels.map(c => `${c.id}(${typeof c.id})`).slice(0, 5).join(', ')}...`);
             res.status(404).json({ error: `Channel ${channelId} not found` });
         }
     } catch (error) {
@@ -2781,6 +2796,109 @@ log "AMD GPU support installation completed successfully!"
         });
     }
 });
+
+// GPU Fan Control API endpoints
+app.get('/api/gpu-fan-info', async (req, res) => {
+    try {
+        const fanInfo = await getGPUFanInfo();
+        res.json(fanInfo);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/gpu-fan-control', async (req, res) => {
+    try {
+        const { gpuIndex, fanSpeed, mode } = req.body; // mode: 'auto' or 'manual'
+        const result = await setGPUFanControl(gpuIndex, fanSpeed, mode);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Helper functions for GPU fan control
+async function getGPUFanInfo() {
+    return new Promise((resolve) => {
+        const fanInfo = [];
+        
+        // Check AMD GPU fan info using rocm-smi if available
+        exec('rocm-smi --showfan', (error, stdout, stderr) => {
+            if (!error && stdout) {
+                const lines = stdout.split('\n');
+                let gpuIndex = 0;
+                
+                for (const line of lines) {
+                    if (line.includes('fan') && line.includes('%')) {
+                        const match = line.match(/(\d+)%/);
+                        if (match) {
+                            fanInfo.push({
+                                gpuIndex,
+                                type: 'AMD',
+                                fanSpeed: parseInt(match[1]),
+                                mode: 'auto', // Default assumption
+                                available: true
+                            });
+                            gpuIndex++;
+                        }
+                    }
+                }
+            }
+            
+            // Check NVIDIA GPU fan info using nvidia-smi if available
+            exec('nvidia-smi --query-gpu=fan.speed --format=csv,noheader,nounits', (error, stdout, stderr) => {
+                if (!error && stdout) {
+                    const fanSpeeds = stdout.trim().split('\n');
+                    fanSpeeds.forEach((speed, index) => {
+                        if (speed && speed !== '[Not Supported]') {
+                            fanInfo.push({
+                                gpuIndex: fanInfo.length,
+                                type: 'NVIDIA',
+                                fanSpeed: parseInt(speed),
+                                mode: 'auto',
+                                available: true
+                            });
+                        }
+                    });
+                }
+                
+                resolve(fanInfo.length > 0 ? fanInfo : [{ error: 'No GPU fan control available' }]);
+            });
+        });
+    });
+}
+
+async function setGPUFanControl(gpuIndex, fanSpeed, mode) {
+    return new Promise((resolve, reject) => {
+        if (mode === 'auto') {
+            // Set to automatic fan control
+            exec('rocm-smi --setfan auto', (error, stdout, stderr) => {
+                if (error) {
+                    // Try nvidia-smi for NVIDIA cards
+                    exec('nvidia-smi -i 0 --auto-boost-default=ENABLED', (nvidiaError) => {
+                        if (nvidiaError) {
+                            reject(new Error('Failed to set automatic fan control'));
+                        } else {
+                            resolve({ success: true, mode: 'auto', message: 'Fan control set to automatic' });
+                        }
+                    });
+                } else {
+                    resolve({ success: true, mode: 'auto', message: 'Fan control set to automatic' });
+                }
+            });
+        } else {
+            // Set manual fan speed
+            const command = `rocm-smi --setfan ${fanSpeed}`;
+            exec(command, (error, stdout, stderr) => {
+                if (error) {
+                    reject(new Error(`Failed to set fan speed: ${error.message}`));
+                } else {
+                    resolve({ success: true, mode: 'manual', fanSpeed, message: `Fan speed set to ${fanSpeed}%` });
+                }
+            });
+        }
+    });
+}
 
 // Function to detect channel resolution using ffprobe
 async function detectChannelResolution(channelUrl) {
