@@ -717,18 +717,22 @@ function parseM3U(content) {
             
             console.log(`Parsed channel ${channelNumber}: ${currentChannel.name}`);
         } else if (line && !line.startsWith('#') && currentChannel.name) {
-            // ALWAYS replace channelid with channelnumber in the URL
-            if (currentChannel.channelNumber && line.includes('/stream/channelid/')) {
-                // Extract the base URL and profile parameters
-                const baseUrl = line.split('/stream/channelid/')[0];
-                const urlParts = line.split('?');
-                const profilePart = urlParts.length > 1 ? `?${urlParts[1]}` : '?profile=pass';
+            // Build TVHeadend URL with channel number: /stream/channelnumber/1?profile="profil"
+            if (currentChannel.channelNumber) {
+                // Extract base URL 
+                let baseUrl;
+                if (line.includes('/stream/')) {
+                    baseUrl = line.split('/stream/')[0];
+                } else {
+                    // If no /stream/ in URL, assume base URL is the line itself minus any query params
+                    baseUrl = line.split('?')[0];
+                }
                 
-                // Build the correct channelnumber URL
-                currentChannel.url = `${baseUrl}/stream/channelnumber/${currentChannel.channelNumber}${profilePart}`;
-                console.log(`🔄 Replaced channelid with channelnumber: ${currentChannel.url}`);
+                // Build the correct URL format: /stream/channelnumber/1?profile="profil"
+                currentChannel.url = `${baseUrl}/stream/channelnumber/${currentChannel.channelNumber}?profile=pass`;
+                console.log(`🔄 Built TVHeadend URL: ${currentChannel.url}`);
             } else {
-                // Keep original URL if no channelid found
+                // Keep original URL if no channel number
                 currentChannel.url = line;
             }
             
@@ -1062,8 +1066,14 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
     if (profileConfig.passthrough) {
         console.log('Using passthrough mode - direct stream');
         
-        // Use channelNumberUrl if available
+        // Use channelNumberUrl with passthrough profile
         let passthroughUrl = channel.channelNumberUrl || channel.url;
+        
+        // Update profile in URL to "pass" for passthrough
+        if (passthroughUrl.includes('?profile=')) {
+            passthroughUrl = passthroughUrl.replace(/\?profile=[^&]*/, '?profile=pass');
+        }
+        
         console.log(`Passthrough URL: ${passthroughUrl}`);
         
         // Update channel status
@@ -1107,8 +1117,29 @@ async function startTranscoding(channelId, profile = 'passthrough', gpu = 'auto'
     const outputDir = path.join(config.streaming.outputDir, channelId.toString());
     await fs.ensureDir(outputDir);
     
-    // Use channelNumberUrl if available, otherwise use original URL
-    const inputUrl = channel.channelNumberUrl || channel.url;
+    // Use channelNumberUrl with the correct TVHeadend profile
+    let inputUrl = channel.channelNumberUrl || channel.url;
+    
+    // Map internal profiles to TVHeadend profiles
+    const tvheadendProfileMap = {
+        'passthrough': 'pass',
+        'hevc_gpu': 'htsp',  // Use HTSP for high quality input
+        'hevc_cpu': 'htsp',
+        'h264_gpu': 'htsp',
+        'h264_cpu': 'htsp',
+        'low_gpu': 'htsp',
+        'low_cpu': 'htsp'
+    };
+    
+    const tvhProfile = tvheadendProfileMap[profile] || 'htsp';
+    
+    // Update profile in URL 
+    if (inputUrl.includes('?profile=')) {
+        inputUrl = inputUrl.replace(/\?profile=[^&]*/, `?profile=${tvhProfile}`);
+    } else {
+        inputUrl += `?profile=${tvhProfile}`;
+    }
+    
     console.log(`Transcoding input URL: ${inputUrl}`);
     
     // Get appropriate encoder based on profile and GPU - DECLARE PROPERLY
@@ -1367,8 +1398,30 @@ async function startUdpStream(channelId, profile = 'passthrough', gpu = 'auto', 
     
     const profileConfig = config.transcoding.profiles[profile];
     
-    // Use channelNumberUrl if available for input
-    const inputUrl = channel.channelNumberUrl || channel.url;
+    // Use channelNumberUrl with the correct TVHeadend profile
+    let inputUrl = channel.channelNumberUrl || channel.url;
+    
+    // Map internal profiles to TVHeadend profiles (same as in startTranscoding)
+    const tvheadendProfileMap = {
+        'passthrough': 'pass',
+        'hevc_gpu': 'htsp',
+        'hevc_cpu': 'htsp', 
+        'h264_gpu': 'htsp',
+        'h264_cpu': 'htsp',
+        'low_gpu': 'htsp',
+        'low_cpu': 'htsp'
+    };
+    
+    const tvhProfile = tvheadendProfileMap[profile] || 'htsp';
+    
+    // Update profile in URL
+    if (inputUrl.includes('?profile=')) {
+        inputUrl = inputUrl.replace(/\?profile=[^&]*/, `?profile=${tvhProfile}`);
+    } else {
+        inputUrl += `?profile=${tvhProfile}`;
+    }
+    
+    console.log(`UDP input URL: ${inputUrl}`);
     
     // Build FFmpeg command
     let ffmpegArgs = [
@@ -2919,55 +2972,9 @@ app.post('/api/refresh-gpu-info', async (req, res) => {
     }
 });
 
-// Function to load channels from TVHeadend
-async function loadChannelsFromTVHeadend() {
-    try {
-        const url = `http://${config.tvheadend.host}:${config.tvheadend.port}/api/channel/grid`;
-        const auth = {
-            username: config.tvheadend.username,
-            password: config.tvheadend.password
-        };
-
-        console.log('Loading channels from TVHeadend...');
-        const response = await axios.get(url, { 
-            auth,
-            timeout: config.tvheadend.timeout || 10000 
-        });
-
-        if (response.data && response.data.entries) {
-            channels = response.data.entries.map(channel => ({
-                id: channel.uuid,
-                name: channel.name,
-                number: channel.number,
-                enabled: channel.enabled,
-                uuid: channel.uuid,
-                services: channel.services,
-                logo: '', // TVHeadend ne vraća logo direktno
-                url: `http://${config.tvheadend.host}:${config.tvheadend.port}/stream/channel/${channel.uuid}`,
-                group: 'TV Channels',
-                isActive: false,
-                transcoding: false,
-                profile: 'medium',
-                gpu: 'auto',
-                bandwidth: 0,
-                totalData: 0
-            }));
-
-            console.log(`Loaded ${channels.length} channels from TVHeadend`);
-            return true;
-        } else {
-            console.warn('No channels received from TVHeadend');
-            return false;
-        }
-    } catch (error) {
-        console.error('Error loading channels from TVHeadend:', error.message);
-        return false;
-    }
-}
-
-// Load channels from TVHeadend on startup
+// Load channels from M3U playlist on startup
 (async () => {
-    await loadChannelsFromTVHeadend();
+    await fetchPlaylist();
 })();
 
 // Start the HTTP server
@@ -2991,11 +2998,11 @@ server.listen(PORT, async () => {
             // Notify all connected clients about GPU info update
             io.emit('gpuInfo', gpuInfo);
             
-            // Load channels from TVHeadend
+            // Load channels from M3U playlist
             console.log('Loading channels from TVHeadend...');
-            const channelsLoaded = await loadChannelsFromTVHeadend();
+            const channelsLoaded = await fetchPlaylist();
             if (!channelsLoaded) {
-                console.log('Failed to load channels from TVHeadend, using demo channels');
+                console.log('Failed to load channels from M3U playlist');
             }
             
             // Notify all connected clients about channels update

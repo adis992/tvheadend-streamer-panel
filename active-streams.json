@@ -1,10 +1,8 @@
 [
   {
-    "type": "udp",
+    "type": "hls",
     "channelId": "a302e8054d0cbfc84e0e07cab516a2d3",
-    "profile": "passthrough",
-    "gpu": "amd",
-    "ip": "239.255.0.1",
-    "port": 1234
+    "profile": "hevc_hd",
+    "gpu": "amd"
   }
 ]
