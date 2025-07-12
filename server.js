@@ -2877,7 +2877,25 @@ app.post('/api/refresh-gpu-info', async (req, res) => {
 
 // Start the HTTP server
 const PORT = config.server && config.server.port ? config.server.port : 3000;
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
     console.log(`Server is running and listening on port ${PORT}`);
+    
+    // Refresh GPU detection automatically after server starts
+    setTimeout(async () => {
+        try {
+            console.log('Running automatic GPU detection refresh...');
+            const updatedGpuInfo = await detectGPU();
+            const detailedGpus = await detectMultipleGPUs();
+            
+            console.log('GPU detection refreshed:', updatedGpuInfo);
+            console.log('Detailed GPUs:', detailedGpus);
+            
+            // Update global gpuInfo
+            Object.assign(gpuInfo, updatedGpuInfo);
+            
+        } catch (error) {
+            console.error('Error during automatic GPU refresh:', error);
+        }
+    }, 3000); // Wait 3 seconds for system to stabilize
 });
 
