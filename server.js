@@ -2840,3 +2840,44 @@ app.get('/api/gpu-info-detailed', async (req, res) => {
     }
 });
 
+// API endpoint to refresh GPU detection
+app.post('/api/refresh-gpu-info', async (req, res) => {
+    try {
+        console.log('Refreshing GPU information...');
+        
+        // Re-run GPU detection
+        const updatedGpuInfo = await detectGPU();
+        
+        // Also get detailed GPU info
+        const detailedGpus = await detectMultipleGPUs();
+        
+        // Emit updated info to all connected clients
+        io.emit('gpuInfoUpdated', updatedGpuInfo);
+        io.emit('detailedGpuInfoUpdated', {
+            gpus: detailedGpus,
+            count: detailedGpus.length,
+            nvidia: detailedGpus.filter(gpu => gpu.type === 'NVIDIA').length,
+            amd: detailedGpus.filter(gpu => gpu.type === 'AMD').length
+        });
+        
+        res.json({
+            success: true,
+            message: 'GPU information refreshed successfully',
+            gpuInfo: updatedGpuInfo,
+            detailedGpus: detailedGpus
+        });
+    } catch (error) {
+        console.error('Error refreshing GPU info:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
+        });
+    }
+});
+
+// Start the HTTP server
+const PORT = config.server && config.server.port ? config.server.port : 3000;
+server.listen(PORT, () => {
+    console.log(`Server is running and listening on port ${PORT}`);
+});
+
