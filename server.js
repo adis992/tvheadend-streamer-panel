@@ -154,38 +154,150 @@ app.get('/api/check-components', async (req, res) => {
 
 app.post('/api/auto-install', async (req, res) => {
     try {
-        // Run the install script
+        const { component } = req.body; // Optional: specify component (amd-gpu, ffmpeg, all)
+        log.info(`Auto-install requested for: ${component || 'all components'}`);
+        
+        // AMD GPU specific installation
+        if (component === 'amd-gpu') {
+            // Check if AMD GPU is detected first
+            const amdGpuDetected = await new Promise((resolve) => {
+                exec('lspci | grep -i -E "(amd|radeon)" | grep -i vga', (error, stdout) => {
+                    if (!error && stdout.trim()) {
+                        log.info(`AMD GPU detected: ${stdout.trim()}`);
+                        resolve(true);
+                    } else {
+                        log.warn('No AMD GPU detected');
+                        resolve(false);
+                    }
+                });
+            });
+            
+            if (!amdGpuDetected) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'No AMD GPU detected on this system'
+                });
+            }
+            
+            log.info('Starting AMD GPU installation...');
+            io.emit('installProgress', {
+                component: 'amd-gpu',
+                message: 'Starting AMD GPU installation...',
+                progress: 10
+            });
+            
+            // Run AMD installation commands directly
+            const amdCommands = [
+                'sudo apt update',
+                'sudo apt install -y mesa-va-drivers mesa-vdpau-drivers libva-dev vainfo radeontop mesa-opencl-icd clinfo mesa-vulkan-drivers opencl-headers',
+                'clinfo | head -5 || echo "OpenCL test completed"',
+                'vainfo || echo "VAAPI test completed"'
+            ];
+            
+            const installProcess = spawn('bash', ['-c', amdCommands.join(' && ')], {
+                cwd: __dirname,
+                stdio: 'pipe',
+                env: {...process.env, FORCE_COLOR: '1'}
+            });
+            
+            installProcess.stdout.on('data', (data) => {
+                const output = data.toString();
+                console.log(`AMD Install: ${output.trim()}`);
+                io.emit('installProgress', {
+                    component: 'amd-gpu',
+                    message: output.trim(),
+                    progress: 50
+                });
+            });
+            
+            installProcess.stderr.on('data', (data) => {
+                const output = data.toString();
+                console.error(`AMD Install: ${output.trim()}`);
+                io.emit('installProgress', {
+                    component: 'amd-gpu',
+                    message: output.trim(),
+                    progress: 50
+                });
+            });
+            
+            installProcess.on('close', (code) => {
+                if (code === 0) {
+                    log.info('AMD GPU installation completed successfully');
+                    io.emit('installComplete', { 
+                        component: 'amd-gpu',
+                        message: 'AMD GPU support installed successfully! Your RX580 should now have proper drivers.'
+                    });
+                    
+                    // Refresh GPU detection after install
+                    setTimeout(() => {
+                        detectGPU();
+                    }, 2000);
+                    
+                    res.json({ 
+                        success: true, 
+                        message: 'AMD GPU support installed successfully'
+                    });
+                } else {
+                    log.error(`AMD GPU installation failed with code ${code}`);
+                    io.emit('installError', { 
+                        component: 'amd-gpu',
+                        error: `Installation failed with code ${code}`
+                    });
+                    res.status(500).json({ 
+                        success: false, 
+                        error: `Installation failed with code ${code}`
+                    });
+                }
+            });
+            
+            return; // Exit here for AMD-specific install
+        }
+        
+        // Default: run full install.sh for everything
         const installProcess = spawn('./install.sh', [], {
             cwd: __dirname,
-            stdio: 'pipe'
+            stdio: 'pipe',
+            env: {...process.env, FORCE_COLOR: '1'}
         });
         
         installProcess.stdout.on('data', (data) => {
+            const output = data.toString();
+            console.log(`Auto-install: ${output.trim()}`);
             io.emit('installProgress', {
                 component: 'auto-install',
-                message: data.toString().trim(),
+                message: output.trim(),
                 progress: 50
             });
         });
         
         installProcess.stderr.on('data', (data) => {
+            const output = data.toString();
+            console.error(`Auto-install: ${output.trim()}`);
             io.emit('installProgress', {
                 component: 'auto-install',
-                message: data.toString().trim(),
+                message: output.trim(),
                 progress: 50
             });
         });
         
         installProcess.on('close', (code) => {
             if (code === 0) {
+                log.info('Auto-install completed successfully');
                 io.emit('installComplete', { component: 'auto-install' });
+                
+                // Refresh GPU detection after install
+                setTimeout(() => {
+                    detectGPU();
+                }, 2000);
             } else {
+                log.error(`Auto-install failed with code ${code}`);
                 io.emit('installError', { error: `Installation failed with code ${code}` });
             }
         });
         
         res.json({ success: true, message: 'Auto installation started' });
     } catch (error) {
+        log.error(`Error in auto-install: ${error.message}`);
         console.error('Error starting auto install:', error);
         res.status(500).json({ error: error.message });
     }
@@ -2390,206 +2502,6 @@ app.post('/api/update-system', async (req, res) => {
     } catch (error) {
         log.error(`Error in update system endpoint: ${error.message}`);
         console.error('Error updating system:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: error.message 
-        });
-    }
-});
-
-// AMD GPU auto-install endpoint
-app.post('/api/install-amd-gpu', async (req, res) => {
-    try {
-        log.info('AMD GPU auto-install requested');
-        
-        // First check if AMD GPU is detected
-        const amdGpuDetected = await new Promise((resolve) => {
-            exec('lspci | grep -i -E "(amd|radeon)" | grep -i vga', (error, stdout) => {
-                if (!error && stdout.trim()) {
-                    log.info(`AMD GPU detected: ${stdout.trim()}`);
-                    resolve(true);
-                } else {
-                    log.warn('No AMD GPU detected');
-                    resolve(false);
-                }
-            });
-        });
-        
-        if (!amdGpuDetected) {
-            return res.status(400).json({
-                success: false,
-                error: 'No AMD GPU detected on this system'
-            });
-        }
-        
-        // Create AMD-specific install script
-        const amdInstallScript = `#!/bin/bash
-set -e
-
-echo "Installing AMD GPU support..."
-
-# Colors for output
-GREEN='\\033[0;32m'
-YELLOW='\\033[1;33m'
-RED='\\033[0;31m'
-NC='\\033[0m' # No Color
-
-log() {
-    echo -e "\${GREEN}[INFO]\${NC} $1"
-}
-
-warn() {
-    echo -e "\${YELLOW}[WARN]\${NC} $1"
-}
-
-error() {
-    echo -e "\${RED}[ERROR]\${NC} $1"
-}
-
-# Detect AMD GPU
-GPU_INFO=$(lspci | grep -i -E "(amd|radeon)" | grep -i vga)
-log "Detected GPU: $GPU_INFO"
-
-# Install basic Mesa drivers and VAAPI support (works for all AMD GPUs)
-log "Installing Mesa drivers and VAAPI support..."
-sudo apt update
-sudo apt install -y \\
-    mesa-va-drivers \\
-    mesa-vdpau-drivers \\
-    libva-dev \\
-    vainfo \\
-    radeontop \\
-    mesa-opencl-icd \\
-    clinfo \\
-    mesa-vulkan-drivers \\
-    opencl-headers
-
-# Check if this is a newer GPU that supports ROCm
-if echo "$GPU_INFO" | grep -i -E "(vega|navi|rdna|rx 6|rx 7)" &> /dev/null; then
-    log "Modern AMD GPU detected, installing ROCm support..."
-    VERSION_ID=$(grep VERSION_ID /etc/os-release | cut -d'"' -f2)
-    if [[ "$VERSION_ID" == "20.04" ]] || [[ "$VERSION_ID" == "22.04" ]]; then
-        curl -fsSL https://repo.radeon.com/rocm/rocm.gpg.key | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/rocm.gpg
-        echo "deb [arch=amd64] https://repo.radeon.com/rocm/apt/$VERSION_ID jammy main" | sudo tee /etc/apt/sources.list.d/rocm.list
-        sudo apt update
-        sudo apt install -y rocm-dev rocm-libs hip-runtime-amd || {
-            warn "ROCm installation failed, continuing with Mesa drivers only"
-        }
-    fi
-else
-    log "Older AMD GPU (GCN/Polaris like RX580) detected - ROCm not supported"
-    log "Using Mesa drivers with OpenCL support for basic acceleration"
-fi
-
-log "Testing OpenCL support..."
-if command -v clinfo &> /dev/null; then
-    clinfo | head -10 || warn "OpenCL may not be working properly"
-fi
-
-log "Testing VAAPI support..."
-if command -v vainfo &> /dev/null; then
-    vainfo || warn "VAAPI may not be working properly"
-fi
-
-# Test FFmpeg with AMD support
-log "Testing FFmpeg AMD encoder support..."
-if ffmpeg -encoders 2>/dev/null | grep -q "h264_amf"; then
-    log "✓ AMD H.264 encoder (AMF) available"
-elif ffmpeg -encoders 2>/dev/null | grep -q "h264_vaapi"; then
-    log "✓ VAAPI H.264 encoder available"
-else
-    warn "✗ No AMD hardware encoders found, will use software encoding with OpenCL acceleration"
-fi
-
-log "AMD GPU support installation completed successfully!"
-`;
-
-        // Write the script to a temporary file
-        const fs = require('fs');
-        const path = require('path');
-        const scriptPath = path.join(__dirname, 'temp_amd_install.sh');
-        fs.writeFileSync(scriptPath, amdInstallScript);
-        fs.chmodSync(scriptPath, 0o755);
-        
-        // Execute the AMD install script
-        const installProcess = spawn('bash', [scriptPath], {
-            cwd: __dirname,
-            stdio: 'pipe',
-            env: {...process.env, FORCE_COLOR: '1'}
-        });
-        
-        let stdoutData = '';
-        let stderrData = '';
-        
-        installProcess.stdout.on('data', (data) => {
-            const output = data.toString();
-            stdoutData += output;
-            console.log(`AMD Install: ${output.trim()}`);
-            // Send real-time progress to frontend
-            io.emit('installProgress', {
-                component: 'amd-gpu',
-                message: output.trim(),
-                progress: 50
-            });
-        });
-        
-        installProcess.stderr.on('data', (data) => {
-            const output = data.toString();
-            stderrData += output;
-            console.error(`AMD Install Error: ${output.trim()}`);
-        });
-        
-        installProcess.on('close', (code) => {
-            // Clean up temp script
-            try {
-                fs.unlinkSync(scriptPath);
-            } catch (err) {
-                console.warn('Could not delete temp script:', err.message);
-            }
-            
-            if (code === 0) {
-                log.info('AMD GPU installation completed successfully');
-                io.emit('installComplete', { 
-                    component: 'amd-gpu',
-                    message: 'AMD GPU support installed successfully!'
-                });
-                res.json({ 
-                    success: true, 
-                    message: 'AMD GPU support installed successfully',
-                    output: stdoutData
-                });
-                
-                // Trigger GPU detection refresh
-                setTimeout(() => {
-                    detectGPU();
-                }, 2000);
-            } else {
-                log.error(`AMD GPU installation failed with code ${code}`);
-                io.emit('installError', { 
-                    component: 'amd-gpu',
-                    error: `Installation failed with code ${code}`,
-                    output: stderrData
-                });
-                res.status(500).json({ 
-                    success: false, 
-                    error: `Installation failed with code ${code}`,
-                    output: stdoutData,
-                    errorOutput: stderrData
-                });
-            }
-        });
-        
-        installProcess.on('error', (err) => {
-            log.error(`Error spawning AMD install process: ${err.message}`);
-            res.status(500).json({
-                success: false,
-                error: `Failed to start installation: ${err.message}`
-            });
-        });
-        
-    } catch (error) {
-        log.error(`Error in AMD GPU auto-install: ${error.message}`);
-        console.error('Error in AMD GPU auto-install:', error);
         res.status(500).json({ 
             success: false, 
             error: error.message 
