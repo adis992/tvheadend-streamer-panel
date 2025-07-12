@@ -611,17 +611,36 @@ async function detectGPU() {
                                 console.log('AMD GPU model detected:', gpuInfo.amdModelName);
                             }
                             
-                            // Check for driver availability
-                            exec('lsmod | grep -i amdgpu', (error, stdout) => {
-                                if (!error && stdout.trim()) {
-                                    console.log('AMD GPU driver (amdgpu) is loaded');
-                                    gpuInfo.amdDriverLoaded = true;
+                            // Check Mesa drivers availability (more important than kernel module for video encoding)
+                            exec('dpkg -l | grep -i mesa', (mesaError, mesaStdout) => {
+                                if (!mesaError && mesaStdout.includes('mesa')) {
+                                    console.log('Mesa drivers detected for AMD GPU');
+                                    gpuInfo.amdMesaAvailable = true;
+                                    
+                                    // Check for AMF encoder support in FFmpeg
+                                    exec('ffmpeg -encoders 2>/dev/null | grep -E "(h264_amf|hevc_amf)"', (ffmpegError, ffmpegStdout) => {
+                                        if (!ffmpegError && ffmpegStdout.trim()) {
+                                            console.log('AMD AMF encoders detected in FFmpeg:', ffmpegStdout.trim());
+                                            gpuInfo.amdAmfSupport = true;
+                                        } else {
+                                            console.log('AMD AMF encoders not available, checking VAAPI support...');
+                                            exec('ffmpeg -encoders 2>/dev/null | grep vaapi', (vaapiError, vaapiStdout) => {
+                                                if (!vaapiError && vaapiStdout.includes('vaapi')) {
+                                                    console.log('VAAPI encoders detected for AMD GPU');
+                                                    gpuInfo.amdVaapiSupport = true;
+                                                }
+                                            });
+                                        }
+                                    });
                                 } else {
-                                    console.log('AMD GPU driver not loaded or not available');
-                                    gpuInfo.amdDriverLoaded = false;
+                                    console.log('Mesa drivers not detected');
+                                    gpuInfo.amdMesaAvailable = false;
                                 }
-                                resolve(true);
                             });
+                            
+                            // AMD GPU hardware detected - return true regardless of driver status
+                            // since Mesa can work without kernel module loaded
+                            resolve(true);
                         } else {
                             resolve(false);
                         }
@@ -2666,6 +2685,14 @@ server.listen(PORT, () => {
     console.log(`🚀 TVHeadend Streamer Panel running on port ${PORT}`);
     console.log(`🔗 Access at: http://localhost:${PORT}`);
     console.log('Server started successfully');
+    
+    // Initialize GPU detection on startup
+    detectGPU().then(() => {
+        console.log('GPU Detection completed:', gpuInfo);
+    }).catch(error => {
+        console.error('GPU Detection failed:', error);
+    });
+    
     // Restore active streams after reboot
     restoreActiveStreamsFromFile();
 });
