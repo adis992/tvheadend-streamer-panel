@@ -2689,21 +2689,154 @@ log "AMD GPU support installation completed successfully!"
     }
 });
 
-// Start the server
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`🚀 TVHeadend Streamer Panel running on port ${PORT}`);
-    console.log(`🔗 Access at: http://localhost:${PORT}`);
-    console.log('Server started successfully');
-    
-    // Initialize GPU detection on startup
-    detectGPU().then(() => {
-        console.log('GPU Detection completed:', gpuInfo);
-    }).catch(error => {
-        console.error('GPU Detection failed:', error);
+// Function to detect channel resolution using ffprobe
+async function detectChannelResolution(channelUrl) {
+    return new Promise((resolve) => {
+        const ffprobeCmd = `ffprobe -v quiet -print_format json -show_streams "${channelUrl}"`;
+        
+        exec(ffprobeCmd, { timeout: 10000 }, (error, stdout, stderr) => {
+            if (error) {
+                console.warn(`Could not detect resolution for ${channelUrl}:`, error.message);
+                resolve({ width: 'Unknown', height: 'Unknown', resolution: 'Unknown' });
+                return;
+            }
+            
+            try {
+                const data = JSON.parse(stdout);
+                const videoStream = data.streams.find(stream => stream.codec_type === 'video');
+                
+                if (videoStream && videoStream.width && videoStream.height) {
+                    const width = videoStream.width;
+                    const height = videoStream.height;
+                    const resolution = `${width}x${height}`;
+                    
+                    // Add common resolution names
+                    let resolutionName = resolution;
+                    if (height <= 480) resolutionName = `${resolution} (SD)`;
+                    else if (height <= 720) resolutionName = `${resolution} (HD)`;
+                    else if (height <= 1080) resolutionName = `${resolution} (FHD)`;
+                    else if (height <= 1440) resolutionName = `${resolution} (QHD)`;
+                    else if (height <= 2160) resolutionName = `${resolution} (4K)`;
+                    else resolutionName = `${resolution} (8K+)`;
+                    
+                    resolve({ 
+                        width: width, 
+                        height: height, 
+                        resolution: resolutionName,
+                        framerate: videoStream.r_frame_rate || 'Unknown',
+                        codec: videoStream.codec_name || 'Unknown'
+                    });
+                } else {
+                    resolve({ width: 'Unknown', height: 'Unknown', resolution: 'Unknown' });
+                }
+            } catch (parseError) {
+                console.warn(`Could not parse ffprobe output for ${channelUrl}:`, parseError.message);
+                resolve({ width: 'Unknown', height: 'Unknown', resolution: 'Unknown' });
+            }
+        });
     });
-    
-    // Restore active streams after reboot
-    restoreActiveStreamsFromFile();
+}
+
+// API endpoint to get channel resolution
+app.get('/api/channel-resolution/:channelId', async (req, res) => {
+    try {
+        const channelId = req.params.channelId;
+        const channel = channels.find(c => c.id == channelId);
+        
+        if (!channel) {
+            return res.status(404).json({ error: 'Channel not found' });
+        }
+        
+        const resolution = await detectChannelResolution(channel.url);
+        res.json(resolution);
+    } catch (error) {
+        console.error('Error detecting channel resolution:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Enhanced GPU detection that supports multiple AMD GPUs
+async function detectMultipleGPUs() {
+    try {
+        const gpus = [];
+        
+        // Check for NVIDIA GPUs
+        try {
+            const nvidiaInfo = await new Promise((resolve, reject) => {
+                exec('nvidia-smi --query-gpu=index,name,driver_version,memory.total --format=csv,noheader', (error, stdout) => {
+                    if (error) reject(error);
+                    else resolve(stdout);
+                });
+            });
+            
+            const nvidiaLines = nvidiaInfo.trim().split('\n');
+            nvidiaLines.forEach((line, index) => {
+                const parts = line.split(', ');
+                if (parts.length >= 4) {
+                    gpus.push({
+                        type: 'NVIDIA',
+                        index: parseInt(parts[0]),
+                        name: parts[1],
+                        driver: parts[2],
+                        memory: parts[3],
+                        available: true
+                    });
+                }
+            });
+        } catch (nvidiaError) {
+            console.log('NVIDIA GPUs not detected or nvidia-smi not available');
+        }
+        
+        // Check for AMD GPUs
+        try {
+            const amdInfo = await new Promise((resolve, reject) => {
+                exec('lspci | grep -i -E "(amd|radeon)" | grep -i vga', (error, stdout) => {
+                    if (error) reject(error);
+                    else resolve(stdout);
+                });
+            });
+            
+            const amdLines = amdInfo.trim().split('\n');
+            amdLines.forEach((line, index) => {
+                if (line.trim()) {
+                    // Extract GPU model name
+                    const modelMatch = line.match(/\[AMD\/ATI\]\s+([^\[]+)/i);
+                    const gpuName = modelMatch ? modelMatch[1].trim() : 'AMD GPU';
+                    
+                    gpus.push({
+                        type: 'AMD',
+                        index: index,
+                        name: gpuName,
+                        driver: 'Mesa/OpenCL',
+                        memory: 'Unknown',
+                        available: true
+                    });
+                }
+            });
+        } catch (amdError) {
+            console.log('AMD GPUs not detected');
+        }
+        
+        return gpus;
+    } catch (error) {
+        console.error('Error detecting multiple GPUs:', error);
+        return [];
+    }
+}
+
+// API endpoint for multiple GPU information
+app.get('/api/gpu-info-detailed', async (req, res) => {
+    try {
+        const gpus = await detectMultipleGPUs();
+        res.json({
+            gpus: gpus,
+            count: gpus.length,
+            nvidia: gpus.filter(gpu => gpu.type === 'NVIDIA').length,
+            amd: gpus.filter(gpu => gpu.type === 'AMD').length
+        });
+    } catch (error) {
+        console.error('Error in detailed GPU info API:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 

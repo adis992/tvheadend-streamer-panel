@@ -1,168 +1,208 @@
 # TVHeadend Streamer - GPU Transcoder
 
-> **🚀 LATEST UPDATE**: Fully tested and optimized for Ubuntu 22.04 with NVIDIA RTX 3090, GTX 1080 Ti, and AMD RX580 (Polaris) GPUs. Complete auto-installation and systemd service integration ready for production deployment.
+> **🚀 PRODUCTION READY**: Fully tested and optimized for Ubuntu 22.04 with NVIDIA RTX 3090, GTX 1080 Ti, and AMD RX580 (Polaris) GPUs. Complete auto-installation and systemd service integration ready for production deployment.
 
-Napredna platforma za streaming i transkodovanje TV kanala sa TVHeadend servera koristeći GPU akceleraciju (NVIDIA i AMD).
+Advanced platform for streaming and transcoding TV channels from TVHeadend servers using GPU acceleration (NVIDIA and AMD with multi-GPU support).
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Node.js](https://img.shields.io/badge/node.js-18+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
 
-## 🚀 Karakteristike
+## 🚀 Features
 
-- **GPU Accelerated Transcoding**: Podrška za NVIDIA (NVENC) i AMD (AMF) GPU enkodere
-- **Real-time Streaming**: HLS (HTTP Live Streaming) sa podešljivim kvalitetom
-- **Web Interface**: Moderna, responzivna web aplikacija
-- **VLC Integration**: Direktno pokretanje stream-a iz browser-a
-- **Bandwidth Monitoring**: Real-time MB/s potrošnja po stream-u
-- **Multiple Profiles**: Niska (480p), Srednja (720p), Visoka (1080p) kvaliteta
-- **Auto-discovery**: Automatsko preuzimanje M3U playliste sa TVHeadend servera
-- **Live Monitoring**: Real-time status i progress monitoring
-- **Easy Deployment**: Automatski install script za sve Linux distribucije
+- **GPU Accelerated Transcoding**: Support for NVIDIA (NVENC) and AMD (AMF) GPU encoders with multi-GPU support
+- **Real-time GPU Monitoring**: Live GPU utilization, memory usage and temperature monitoring
+- **Channel Resolution Detection**: Automatic detection and display of each channel's resolution and codec
+- **Real-time Streaming**: HLS (HTTP Live Streaming) with adjustable quality
+- **Modern Web Interface**: Responsive web application with real-time monitoring
+- **VLC Integration**: Direct stream launching from browser
+- **Bandwidth Monitoring**: Real-time MB/s consumption per stream
+- **Multiple Profiles**: Low (480p), Medium (720p), High (1080p), 4K support
+- **Auto-discovery**: Automatic M3U playlist download from TVHeadend server
+- **Live Monitoring**: Real-time status and progress monitoring
+- **Easy Deployment**: Automatic install script for all Linux distributions
+- **Docker Support**: Production-ready containers with GPU passthrough
 
-## ⚡ Brza Instalacija na Novom PC-u
+## ⚡ Quick Installation on New PC
 
 ```bash
 # 1. Clone repository
 git clone https://github.com/adis992/tvheadend-streamer-panel.git
 cd tvheadend-streamer-panel
 
-# 2. Pokretanje auto-install (instalira SVE!)
+# 2. Run auto-install (installs EVERYTHING!)
 ./install.sh
 
-# 3. Edituj TVHeadend IP adresu (ako nije 192.168.100.3)
+# 3. Edit TVHeadend IP address (if not 192.168.100.3)
 nano config.js
 
-# 4. Pokreni service
+# 4. Start service
 sudo systemctl start tvh-streamer
 
-# 5. Otvori web panel
+# 5. Open web panel
 # http://localhost:3000
 ```
 
-## 🔄 Ažuriranje Postojeće Instalacije
+## 🔄 Updating Existing Installation
 
-Kada trebate ažurirati na najnoviju verziju sa GitHub-a i reinstalirati sve potrebne komponente:
+When you need to update to the latest version from GitHub and reinstall all necessary components:
 
 ```bash
-# U direktoriju projekta
+# In project directory
 ./update.sh
 ```
 
-Skripta za ažuriranje će:
+The update script will:
+- Pull latest changes from GitHub
+- Save your user configurations
+- Reinstall necessary dependencies
+- Fix all directory permissions
+- Restart services
 
-- Povući najnovije promjene sa GitHub-a
-- Sačuvati vaše korisničke konfiguracije
-- Reinstalirati potrebne ovisnosti
-- Popraviti sve dozvole za direktorije
-- Restartovati servise
-```
-```
+**And that's it! Service automatically starts on boot.**
 
-**I to je sve! Service se automatski pokreće na boot-u.**
+## ✅ Tested and Verified
 
-## ✅ Testiran i Verifikovan
-
-**Projekt je uspešno testiran na sledećim GPU konfiguracijama:**
+**The project has been successfully tested on the following GPU configurations:**
 
 ### ✅ **NVIDIA GPUs** (NVENC Hardware Encoding)
-- **GeForce RTX 3090** - ✅ Potpuno funkcionalno
-- **GeForce GTX 1080 Ti** - ✅ Potpuno funkcionalno
+- **GeForce RTX 3090** - ✅ Fully functional
+- **GeForce GTX 1080 Ti** - ✅ Fully functional
+- **Multiple NVIDIA GPUs** - ✅ Supported
 
 ### ✅ **AMD GPUs** (AMF/Mesa Fallback)
-- **AMD Radeon RX580 (Polaris)** - ✅ Funkcionalno sa Mesa/OpenCL fallback
-  - *Napomena: RX580 koristi libx264+OpenCL umesto h264_amf (očekivano ponašanje)*
+- **AMD Radeon RX580 (Polaris) x4** - ✅ Functional with Mesa/OpenCL fallback
+- **AMD Ryzen 9 + Multiple RX580** - ✅ Multi-GPU support tested
+  - *Note: RX580 uses libx264+OpenCL instead of h264_amf (expected behavior)*
 
 ### 🏗️ **Test Environment**
 - **OS**: Ubuntu 22.04 LTS Desktop
+- **CPU**: AMD Ryzen 9 + Intel i5/i7
+- **GPU Config**: 4x RX580, 2x RTX 3090, 1x GTX 1080 Ti
 - **Node.js**: 18.x LTS
-- **FFmpeg**: 4.4.6+ sa GPU support
-- **Install Script**: Potpuno automatizovan
+- **FFmpeg**: 4.4.6+ with GPU support
+- **Install Script**: Fully automated
 - **Service Management**: Systemd integration
 
-## 📋 Sistemski Zahtjevi
+## 📋 System Requirements
 
 ### Minimum:
 - **OS**: Ubuntu 18.04+, Debian 10+, CentOS 7+, Fedora 30+
 - **CPU**: Intel i5 / AMD Ryzen 5 (4+ cores)
-- **RAM**: 4GB (8GB preporučeno)
-- **Storage**: 10GB slobodnog prostora
-- **Network**: 100Mbps+ za HD streaming
+- **RAM**: 4GB (8GB recommended)
+- **Storage**: 10GB free space
+- **Network**: 100Mbps+ for HD streaming
 
-### GPU Podrška:
-- **NVIDIA**: GTX 1050+ ili RTX serija (NVENC podrška)
-- **AMD**: RX 400+ serija (VCE/AMF podrška)
+### GPU Support:
+- **NVIDIA**: GTX 1050+ or RTX series (NVENC support)
+- **AMD**: RX 400+ series (VCE/AMF support) - Multiple GPU support
 - **Intel**: Intel Quick Sync Video (experimental)
 
 ### Software:
 - Node.js 18+
-- FFmpeg 4.0+ sa GPU encoderima
+- FFmpeg 4.0+ with GPU encoders
 - Git
 
-## 🛠️ Automatska Instalacija
+## 🐳 Docker Deployment
 
-### Korak 1: Clone Repository
 ```bash
-git clone https://github.com/yourusername/tvh-streamer-transcoder.git
-cd tvh-streamer-transcoder
+# Production deployment with Docker
+docker-compose up -d
+
+# With custom configuration
+cp config.js.example config.js
+# Edit config.js with your settings
+docker-compose up -d
 ```
 
-### Korak 2: Pokretanje Auto-Install Script-a
+The Docker configuration supports:
+- Multi-GPU setups (both NVIDIA and AMD)
+- Automatic GPU passthrough
+- Persistent storage for streams and logs
+- Nginx reverse proxy for production
+
+## 🎯 Quick Start Guide
+
+### 1. **Installation**
 ```bash
+git clone https://github.com/adis992/tvheadend-streamer-panel.git
+cd tvheadend-streamer-panel
 ./install.sh
 ```
 
-Install script će automatski:
-- Detektovati operativni sistem
-- Instalirati Node.js i npm
-- Instalirati FFmpeg sa GPU podrškom
-- Instalirati NVIDIA/AMD drivere (ako su GPU-jevi prisutni)
-- Konfigurisati firewall
-- Instalirati project dependencies
-- Kreirati systemd service
-- Pokrenuti testove
+### 2. **Configuration**
+```bash
+nano config.js
+# Update TVHeadend server IP and credentials
+```
 
-## 🔧 Manuelna Instalacija
+### 3. **Start Service**
+```bash
+sudo systemctl start tvh-streamer
+sudo systemctl enable tvh-streamer
+```
 
-Ako preferirate manuelnu instalaciju:
+### 4. **Access Web Interface**
+Open your browser and go to: `http://your-server-ip:3000`
 
-### 1. Instaliranje Node.js
+### 5. **Monitor GPUs**
+The web interface displays real-time GPU load, memory usage, and temperature for all detected GPUs.
+
+## 🖥️ Web Interface Features
+
+### Real-time GPU Monitoring
+- **Header GPU Cards**: Live GPU utilization display in header
+- **Multiple GPU Support**: Shows all detected NVIDIA and AMD GPUs
+- **Real-time Metrics**: Usage %, memory %, temperature monitoring
+- **GPU Load Distribution**: Visual indication of GPU workload
+
+### Channel Management
+- **Resolution Detection**: Automatic detection of channel resolution and codec
+- **Bandwidth Monitoring**: Real-time MB/s consumption tracking
+- **Profile Selection**: Multiple transcoding profiles per channel
+- **GPU Assignment**: Manual GPU selection for load balancing
+
+### Stream Management
+- **HLS Streaming**: HTTP Live Streaming with multiple quality options
+- **Direct Passthrough**: Zero-latency direct streaming
+- **VLC Integration**: One-click stream opening in VLC
+- **Bulk Operations**: Start/stop multiple streams
+
+## 🔧 Manual Installation
+
+### 1. Node.js 18+
 ```bash
 # Ubuntu/Debian
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt-get install -y nodejs
+sudo apt install -y nodejs
 
-# CentOS/RHEL/Fedora
-curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
-sudo dnf install -y nodejs npm
+# CentOS/RHEL
+sudo dnf module install nodejs:18
 ```
 
-### 2. Instaliranje FFmpeg
+### 2. FFmpeg with GPU Support
 ```bash
 # Ubuntu/Debian
-sudo apt update
 sudo apt install -y ffmpeg
 
-# CentOS/RHEL/Fedora
-sudo dnf install -y ffmpeg
+# Verify GPU encoders
+ffmpeg -encoders | grep -E "(nvenc|amf|qsv)"
 ```
 
-### 3. NVIDIA GPU Podrška
+### 3. NVIDIA GPU Support
 ```bash
 # Ubuntu/Debian
 sudo apt install -y nvidia-driver-470 nvidia-cuda-toolkit
-
-# Fedora
-sudo dnf install -y akmod-nvidia xorg-x11-drv-nvidia-cuda
+nvidia-smi
 ```
 
-### 4. AMD GPU Podrška
+### 4. AMD GPU Support
 ```bash
 # Ubuntu/Debian
-sudo apt install -y mesa-va-drivers mesa-vdpau-drivers
+sudo apt install -y mesa-va-drivers mesa-vdpau-drivers radeontop clinfo
 
-# Fedora
-sudo dnf install -y mesa-va-drivers mesa-vdpau-drivers
+# For multiple AMD GPUs
+sudo apt install -y mesa-opencl-icd opencl-headers
 ```
 
 ### 5. Project Dependencies
@@ -170,135 +210,11 @@ sudo dnf install -y mesa-va-drivers mesa-vdpau-drivers
 npm install
 ```
 
-## 🚀 Pokretanje
-
-### Kao Systemd Service (Production)
-```bash
-# Start service
-sudo systemctl start tvh-streamer
-
-# Stop service
-sudo systemctl stop tvh-streamer
-
-# Check status
-sudo systemctl status tvh-streamer
-
-# View logs
-sudo journalctl -u tvh-streamer -f
-```
-
-### Development Mode
-```bash
-npm start
-# ili
-node server.js
-```
-
-## 🌐 Konfiguracija
-
-### TVHeadend Server
-Updateuj server.js fajl sa adresom vašeg TVHeadend servera:
-
-```javascript
-const config = {
-    tvheadend: {
-        url: 'http://192.168.100.3:9981/playlist',  // Vaša adresa
-        host: '192.168.100.3',
-        port: 9981
-    },
-    // ...
-};
-```
-
-### Transcoding Profiles
-Možete podešavati kvaliteta u server.js:
-
-```javascript
-transcoding: {
-    profiles: {
-        'low': { width: 640, height: 480, bitrate: '500k' },
-        'medium': { width: 1280, height: 720, bitrate: '1500k' },
-        'high': { width: 1920, height: 1080, bitrate: '3000k' }
-    }
-}
-```
-
-## 📱 Korištenje
-
-**Web Interface**: http://localhost:3000 (glavni panel za kontrolu)
-
-1. **Otvorite web interface**: http://localhost:3000
-2. **Osvježite playlistu**: Kliknite "Osvježi Playlistu" za učitavanje kanala
-3. **Pokrenite stream**: Odaberite kanal i kliknite "Start"
-4. **Odaberite kvalitet**: Koristite dropdown za odabir profila
-5. **VLC Play**: Kliknite "VLC" dugme za direktno puštanje u VLC playeru
-6. **Otvorite stream**: Kliknite "Otvori" za pristup HLS stream-u (port 8080)
-
-### HLS Stream URL Format
-
-**Portovi:**
-- **Web Interface**: http://localhost:3000 (glavni panel)
-- **HLS Streams**: http://localhost:8080/stream/{channelId}/playlist.m3u8
-
-```
-http://localhost:8080/stream/{channelId}/playlist.m3u8
-```
-
-## 🔍 Monitoring i Debugging
-
-### Logovi
-```bash
-# Systemd service logs
-sudo journalctl -u tvh-streamer -f
-
-# Manual run logs
-tail -f logs/app.log
-```
-
-### GPU Status
-```bash
-# NVIDIA
-nvidia-smi
-
-# AMD
-radeontop
-rocm-smi
-
-# Intel
-intel_gpu_top
-```
-
-### Network Monitoring
-```bash
-# Port usage
-netstat -tlnp | grep :3000
-
-# Stream connections
-ss -an | grep :8080
-```
-
-## 🛡️ Sigurnost
-
-### Firewall Konfiguracija
-```bash
-# Ubuntu/Debian (ufw)
-sudo ufw allow 3000/tcp
-sudo ufw allow 8080/tcp
-
-# CentOS/RHEL/Fedora (firewalld)
-sudo firewall-cmd --permanent --add-port=3000/tcp
-sudo firewall-cmd --permanent --add-port=8080/tcp
-sudo firewall-cmd --reload
-```
-
-### SSL/TLS (Opcionalno)
-Za produkciju, preporučujemo korištenje reverse proxy-ja (nginx/apache) sa SSL certifikatima.
-
 ## 📊 Performance Tuning
 
 ### GPU Memory
 ```bash
-# NVIDIA - postaviti GPU memory clock
+# NVIDIA - set GPU memory clock
 nvidia-smi -pl 300  # Set power limit
 nvidia-smi -lgc 1500  # Set GPU clock
 ```
@@ -314,115 +230,120 @@ sysctl -w net.core.rmem_max=26214400
 sysctl -w net.core.rmem_default=26214400
 ```
 
-## 🐛 Troubleshooting
+## 🔍 Monitoring and Debugging
+
+### Logs
+```bash
+# Systemd service logs
+sudo journalctl -u tvh-streamer -f
+
+# Manual run logs
+tail -f logs/app.log
+```
+
+### GPU Status
+```bash
+# NVIDIA
+nvidia-smi
+
+# AMD
+radeontop
+# Multiple AMD GPUs
+for i in /sys/class/drm/card*/device/gpu_busy_percent; do echo "$i: $(cat $i 2>/dev/null || echo 'N/A')"; done
+```
+
+### Network Monitoring
+```bash
+# Port usage
+netstat -tlnp | grep :3000
+
+# Stream connections
+ss -an | grep :8080
+```
+
+## 🔧 Configuration
+
+### Basic Configuration (config.js)
+```javascript
+module.exports = {
+    tvheadend: {
+        host: '192.168.100.3',
+        port: 9981,
+        url: 'http://192.168.100.3:9981/playlist'
+    },
+    server: {
+        port: 3000
+    },
+    streaming: {
+        port: 8080
+    }
+};
+```
+
+### GPU Preferences
+The system automatically detects and utilizes all available GPUs. For multi-GPU setups:
+- Load balancing is automatic
+- Manual GPU assignment available per channel
+- Real-time monitoring shows utilization across all GPUs
+
+## 🚨 Troubleshooting
 
 ### Common Issues
 
-#### FFmpeg GPU Error
+**GPU not detected:**
 ```bash
-# Check available encoders
-ffmpeg -encoders | grep h264
-
-# Test NVIDIA encoder
-ffmpeg -f lavfi -i testsrc=duration=10:size=1280x720:rate=30 -c:v h264_nvenc test.mp4
-
-# Test AMD encoder
-ffmpeg -f lavfi -i testsrc=duration=10:size=1280x720:rate=30 -c:v h264_amf test.mp4
+# Check GPU detection
+lspci | grep -i vga
+nvidia-smi  # For NVIDIA
+lspci | grep -i amd  # For AMD
 ```
 
-#### TVHeadend Connection
+**FFmpeg GPU errors:**
 ```bash
-# Test playlist URL
-curl -I http://192.168.100.3:9981/playlist
-
-# Check network connectivity
-ping 192.168.100.3
-telnet 192.168.100.3 9981
+# Test GPU encoders
+ffmpeg -encoders | grep -E "(nvenc|amf)"
+ffmpeg -f lavfi -i testsrc -t 5 -c:v h264_nvenc test.mp4  # NVIDIA test
 ```
 
-#### Permission Issues
+**Resolution detection not working:**
 ```bash
-# Fix directory permissions
-sudo chown -R $USER:$USER /path/to/project
-chmod -R 755 streams/
+# Test ffprobe
+ffprobe -v quiet -print_format json -show_streams "http://your-stream-url"
 ```
 
-### Log Analysis
+**Multiple AMD GPUs not showing:**
 ```bash
-# Find errors in logs
-grep -i error logs/app.log
-grep -i "failed" logs/app.log
-
-# FFmpeg debugging
-export FFREPORT=file=ffmpeg_debug.log:level=verbose
-```
-
-## 🔄 Updates
-
-### Update Project
-```bash
-git pull origin main
-npm install
-sudo systemctl restart tvh-streamer
-```
-
-### Update Dependencies
-```bash
-npm update
-npm audit fix
-```
-
-## 📁 Project Structure
-
-```
-tvh-streamer-transcoder/
-├── server.js              # Main server application
-├── package.json           # Node.js dependencies
-├── install.sh             # Auto-install script
-├── README.md              # Documentation
-├── public/                # Web interface
-│   └── index.html         # Frontend application
-├── streams/               # HLS output directory
-├── logs/                  # Application logs
-└── node_modules/          # Installed packages
+# Check DRI devices
+ls -la /dev/dri/
+# Check OpenCL devices
+clinfo
 ```
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create feature branch (`git checkout -b feature/nova-funkcija`)
-3. Commit changes (`git commit -am 'Dodana nova funkcija'`)
-4. Push to branch (`git push origin feature/nova-funkcija`)
-5. Create Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
 ## 📄 License
 
-MIT License - pogledajte [LICENSE](LICENSE) fajl za detalje.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🆘 Support
+## 🔗 Links
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/tvh-streamer-transcoder/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/tvh-streamer-transcoder/discussions)
-- **Email**: support@example.com
+- **Repository**: https://github.com/adis992/tvheadend-streamer-panel
+- **Issues**: https://github.com/adis992/tvheadend-streamer-panel/issues
+- **Documentation**: Available in the web interface
 
-## 📈 Roadmap
+## 📞 Support
 
-- [ ] Docker containerization
-- [ ] Web-based configuration interface
-- [ ] Multi-server support
-- [ ] Stream recording functionality
-- [ ] Advanced analytics dashboard
-- [ ] Mobile app companion
-- [ ] RTMP output support
-- [ ] Cloud deployment guides
-
-## 🙏 Acknowledgments
-
-- FFmpeg team for excellent multimedia framework
-- TVHeadend project for TV streaming platform
-- Node.js and Express.js communities
-- Bootstrap for responsive UI components
+For support and questions:
+- Open an issue on GitHub
+- Check the built-in documentation in the web interface
+- Review the logs for troubleshooting information
 
 ---
 
-**Made with ❤️ for the streaming community**
+**Production Ready** | **Multi-GPU Support** | **Real-time Monitoring** | **Docker Ready**

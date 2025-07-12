@@ -3,16 +3,15 @@ version: '3.8'
 services:
   tvh-streamer:
     build: .
-    container_name: tvh-streamer-transcoder
+    container_name: tvh-streamer-panel
     restart: unless-stopped
     ports:
       - "3000:3000"
       - "8080:8080"
     volumes:
-      # Important: The 'streams' directory name must have the 's' at the end
       - ./streams:/usr/src/app/streams
       - ./logs:/usr/src/app/logs
-      - ./config:/usr/src/app/config
+      - ./config.js:/usr/src/app/config.js:ro
     environment:
       - NODE_ENV=production
       - TVH_URL=http://192.168.100.3:9981/playlist
@@ -23,32 +22,26 @@ services:
     devices:
       # NVIDIA GPU support (comment out if not using NVIDIA)
       - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidia1:/dev/nvidia1
       - /dev/nvidiactl:/dev/nvidiactl
       - /dev/nvidia-uvm:/dev/nvidia-uvm
-      # AMD GPU support (comment out if not using AMD)
+      - /dev/nvidia-modeset:/dev/nvidia-modeset
+      # AMD GPU support - supports multiple GPUs (comment out if not using AMD)  
       - /dev/dri:/dev/dri
+      - /dev/kfd:/dev/kfd
+    # Add privilege for GPU access
+    privileged: false
+    # Alternative to privileged - use specific capabilities
+    cap_add:
+      - SYS_ADMIN
     networks:
       - tvh-network
-    depends_on:
-      - redis
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/channels"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/system-info"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-
-  redis:
-    image: redis:7-alpine
-    container_name: tvh-streamer-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-    networks:
-      - tvh-network
 
   nginx:
     image: nginx:alpine
@@ -65,9 +58,6 @@ services:
       - tvh-streamer
     networks:
       - tvh-network
-
-volumes:
-  redis_data:
 
 networks:
   tvh-network:

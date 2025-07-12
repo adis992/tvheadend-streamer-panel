@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  tvh-streamer:
+    build: .
+    container_name: tvh-streamer-dev
+    ports:
+      - "3000:3000"
+      - "8080:8080"
+    volumes:
+      - ./streams:/usr/src/app/streams
+      - ./logs:/usr/src/app/logs
+      - .:/usr/src/app:ro
+    environment:
+      - NODE_ENV=development
+      - TVH_URL=http://192.168.100.3:9981/playlist
+      - TVH_HOST=192.168.100.3
+      - TVH_PORT=9981
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/dri:/dev/dri

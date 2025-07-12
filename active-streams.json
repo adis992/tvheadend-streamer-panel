@@ -2,14 +2,14 @@
   {
     "type": "hls",
     "channelId": "1",
-    "profile": "passthrough",
+    "profile": "hevc_fhd",
     "gpu": "amd"
   },
   {
     "type": "udp",
     "channelId": "1",
     "profile": "passthrough",
-    "gpu": "cpu",
+    "gpu": "amd",
     "ip": "239.255.0.1",
     "port": 1234
   }

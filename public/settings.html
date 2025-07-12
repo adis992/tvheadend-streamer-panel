@@ -221,6 +221,21 @@
                         <input type="number" id="playlist-size" class="form-control" value="6">
                     </div>
                     
+                    <div class="mb-3">
+                        <label class="form-label">Default Profile:</label>
+                        <select id="default-profile" class="form-select" title="Select default transcoding profile">
+                            <option value="passthrough" selected>Passthrough (Copy)</option>
+                            <option value="h264_hd">H264 HD</option>
+                            <option value="h264_fhd">H264 FHD</option>
+                            <option value="hevc_hd">HEVC HD</option>
+                            <option value="hevc_fhd">HEVC FHD</option>
+                            <option value="low">Low Quality</option>
+                            <option value="medium">Medium Quality</option>
+                            <option value="high">High Quality</option>
+                        </select>
+                        <small class="form-text text-muted">Default transcoding profile for new streams</small>
+                    </div>
+                    
                     <button class="btn btn-success w-100" onclick="saveSettings()">
                         <i class="fas fa-save"></i> Save Settings
                     </button>
