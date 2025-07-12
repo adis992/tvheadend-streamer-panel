@@ -252,11 +252,29 @@ sudo systemctl daemon-reload
 sudo systemctl start tvh-streamer || warn "Failed to start service. Check logs with 'sudo journalctl -u tvh-streamer'"
 sleep 2
 
-# Test FFmpeg encoders
-log "Testing FFmpeg encoders after update:"
+# Restart the service
+log "Restarting service..."
+sudo systemctl daemon-reload
+
+# Stop service completely first
+sudo systemctl stop tvh-streamer 2>/dev/null || true
+sleep 2
+
+# Start the service and check for errors
+log "Starting tvh-streamer service..."
+if sudo systemctl start tvh-streamer; then
+    log "Service started successfully"
+    sleep 3
     
-if ffmpeg -encoders 2>/dev/null | grep -q "h264_nvenc"; then
-    success "✓ NVIDIA H.264 encoder available"
+    # Double check it's actually running
+    if ! systemctl is-active --quiet tvh-streamer; then
+        warn "Service appears to have stopped after starting. Checking logs..."
+        sudo journalctl -u tvh-streamer --no-pager -n 10
+    fi
+else
+    error "Failed to start service. Checking logs for details..."
+    sudo journalctl -u tvh-streamer --no-pager -n 10
+ficess "✓ NVIDIA H.264 encoder available"
 else
     warn "✗ NVIDIA H.264 encoder not available"
 fi

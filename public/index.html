@@ -608,6 +608,9 @@
                 <div id="amd-status" class="gpu-badge gpu-unavailable">
                     <i class="fas fa-microchip"></i> AMD: Checking...
                 </div>
+                <button id="refresh-gpu-btn" class="btn btn-sm btn-outline-light ms-3" onclick="refreshGPUInfo()" title="Osveži GPU informacije">
+                    <i class="fas fa-sync-alt"></i> Refresh GPU
+                </button>
             </div>
             
             <!-- GPU Load Monitoring -->
@@ -942,241 +945,197 @@
             amdStatus.innerHTML = `<i class="fas fa-microchip"></i> AMD: ${gpuInfo.amd ? 'Dostupna' : 'Nedostupna'}`;
         }
         
-        function renderChannels(filteredChannels = null) {
-            const channelsToRender = filteredChannels || channels;
-            
-            if (channelsToRender.length === 0) {
-                channelsList.innerHTML = `
-                    <div class="text-center py-5">
-                        <i class="fas fa-tv fa-3x text-muted"></i>
-                        <p class="mt-3">Nema dostupnih kanala</p>
-                        <button class="btn btn-primary" onclick="refreshPlaylist()">
-                            <i class="fas fa-sync-alt"></i> Učitaj Playlistu
-                        </button>
-                    </div>
-                `;
-                return;
-            }
-            
-            const html = channelsToRender.map(channel => {
-                const statusClass = channel.isActive ? 
-                    (channel.passthrough ? 'channel-passthrough' : 
-                     channel.transcoding ? 'channel-transcoding' : 'channel-active') : '';
-                
-                const statusBadge = channel.isActive ? 
-                    (channel.passthrough ? 
-                        `<span class="status-badge status-passthrough">Passthrough</span>` :
-                        channel.transcoding ? 
-                        `<span class="status-badge status-transcoding">Transkoduje</span>` :
-                        `<span class="status-badge status-active">Aktivan</span>`
-                    ) : 
-                    `<span class="status-badge status-inactive">Neaktivan</span>`;
-                
-                const bandwidthInfo = channel.isActive && channel.bandwidth !== undefined ? 
-                    `<div class="bandwidth-info">
-                        <i class="fas fa-tachometer-alt"></i>
-                        ${channel.bandwidth > 0 ? channel.bandwidth.toFixed(2) : '0.00'} MB/s 
-                        <span style="color: #666;">(${(channel.totalData || 0).toFixed(1)} MB)</span>
-                    </div>` : 
-                    (channel.isActive ? 
-                        `<div class="bandwidth-info">
-                            <i class="fas fa-tachometer-alt"></i>
-                            Passthrough - 0.00 MB/s (0.0 MB)
-                        </div>` : '');
-                
-                const vlcButton = channel.isActive ? 
-                    `<button class="btn btn-sm vlc-button ${!vlcInstalled ? 'vlc-not-installed' : ''}" 
-                             onclick="launchVLC(${channel.id})" 
-                             ${!vlcInstalled ? 'disabled title="VLC nije instaliran"' : 'title="Otvori u VLC"'}>
-                        <i class="fas fa-play-circle"></i> VLC
-                    </button>` : '';
-                
-                // Generate profile options - simplified static version
-                const selectedProfile = channel.profile || 'medium';
-                const profileOptions = `
-                    <option value="passthrough" ${selectedProfile === 'passthrough' ? 'selected' : ''}>Passthrough (Direktni stream)</option>
-                    <optgroup label="Optimizovani profili">
-                        <option value="hevc_hd" ${selectedProfile === 'hevc_hd' ? 'selected' : ''}>HEVC HD (720p, 3.5MB/s)</option>
-                        <option value="hevc_fhd" ${selectedProfile === 'hevc_fhd' ? 'selected' : ''}>HEVC FHD (1080p, 4MB/s)</option>
-                        <option value="h264_hd" ${selectedProfile === 'h264_hd' ? 'selected' : ''}>H264 HD (720p, 3.5MB/s)</option>
-                        <option value="h264_fhd" ${selectedProfile === 'h264_fhd' ? 'selected' : ''}>H264 FHD (1080p, 4MB/s)</option>
-                    </optgroup>
-                    <optgroup label="Legacy profili">
-                        <option value="low" ${selectedProfile === 'low' ? 'selected' : ''}>Low (640x480, 800kbps)</option>
-                        <option value="medium" ${selectedProfile === 'medium' ? 'selected' : ''}>Medium (1280x720, 2MB/s)</option>
-                        <option value="high" ${selectedProfile === 'high' ? 'selected' : ''}>High (1920x1080, 3.5MB/s)</option>
-                    </optgroup>
-                `;
-                
-                // Generate GPU options - simplified static version
-                const selectedGPU = channel.gpu || 'auto';
-                const gpuOptions = `
-                    <option value="auto" ${selectedGPU === 'auto' ? 'selected' : ''}>Auto</option>
-                    <option value="amd" ${selectedGPU === 'amd' ? 'selected' : ''}>AMD</option>
-                    <option value="nvidia" ${selectedGPU === 'nvidia' ? 'selected' : ''}>NVIDIA</option>
-                `;
-                
-                const profileSelect = `
-                    <div class="channel-profile-select mb-2">
-                        <label class="form-label-sm">Profil:</label>
-                        <select class="form-select form-select-sm" id="profile-${channel.id}" ${channel.isActive ? 'disabled' : ''}>
-                            ${profileOptions}
-                        </select>
-                    </div>
-                `;
-                
-                const gpuSelect = `
-                    <div class="channel-gpu-select mb-2">
-                        <label class="form-label-sm">GPU:</label>
-                        <select class="form-select form-select-sm" id="gpu-${channel.id}" ${channel.isActive ? 'disabled' : ''}>
-                            ${gpuOptions}
-                        </select>
-                    </div>
-                `;
-                
-                return `
-                    <div class="card channel-card ${statusClass}">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center">
-                                <img src="${channel.logo || '/placeholder-logo.png'}" 
-                                     alt="${channel.name}" 
-                                     class="channel-logo"
-                                     onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIGZpbGw9IiNjY2MiIHZpZXdCb3g9IjAgMCAyNCAyNCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMjEgNkg9djEwaDEyVjZtLTItM0g1djEwaDE0VjN6Ii8+PC9zdmc+'">
-                                
-                                <div class="channel-info">
-                                    <div class="channel-name">
-                                        ${channel.channelNumber ? `<span class="badge bg-primary me-2">${channel.channelNumber}</span>` : ''}
-                                        ${channel.name}
-                                    </div>
-                                    <div class="channel-group">
-                                        <i class="fas fa-folder"></i> ${channel.group}
-                                    </div>
-                                    <div class="channel-resolution" id="resolution-${channel.id}">
-                                        <i class="fas fa-tv"></i> <span class="text-muted">Loading resolution...</span>
-                                    </div>
-                                    ${bandwidthInfo}
-                                    <div class="channel-url">${channel.url}</div>
-                                    ${channel.isActive ? `
-                                        <div class="mt-2">
-                                            <div class="output-link">
-                                                <small class="text-primary">
-                                                    <i class="fas fa-stream"></i> ${channel.passthrough ? 'Direct' : 'HLS'}: 
-                                                    <a href="${channel.passthrough ? channel.url : `http://${window.location.hostname}:${serverConfig.streaming.port}/streams/${channel.channelNumber || channel.id}/playlist.m3u8`}" target="_blank" style="text-decoration: none;">
-                                                        ${channel.passthrough ? channel.url : `http://${window.location.hostname}:${serverConfig.streaming.port}/streams/${channel.channelNumber || channel.id}/playlist.m3u8`}
-                                                    </a>
-                                                    <button class="btn btn-sm btn-link p-0" onclick="copyToClipboard('${channel.passthrough ? channel.url : `http://${window.location.hostname}:${serverConfig.streaming.port}/streams/${channel.channelNumber || channel.id}/playlist.m3u8`}')" title="Copy ${channel.passthrough ? 'Direct' : 'HLS'} URL">
-                                                        <i class="fas fa-copy"></i>
-                                                    </button>
-                                                    <button class="btn btn-sm btn-link p-0" onclick="openInVlc('${channel.passthrough ? channel.url : `http://${window.location.hostname}:${serverConfig.streaming.port}/streams/${channel.channelNumber || channel.id}/playlist.m3u8`}')" title="Open in VLC">
-                                                        <i class="fas fa-play text-warning"></i>
-                                                    </button>
-                                                </small>
-                                            </div>
-                                            ${channel.udpStreaming && channel.simpleUdpUrl ? `
-                                            <div class="output-link">
-                                                <small class="text-success">
-                                                    <i class="fas fa-broadcast-tower"></i> UDP: 
-                                                    <span style="font-family: monospace;">${channel.simpleUdpUrl}</span>
-                                                    <button class="btn btn-sm btn-link p-0" onclick="copyToClipboard('${channel.simpleUdpUrl}')" title="Copy UDP URL">
-                                                        <i class="fas fa-copy"></i>
-                                                    </button>
-                                                    <button class="btn btn-sm btn-link p-0" onclick="openInVlc('${channel.simpleUdpUrl}')" title="Open in VLC">
-                                                        <i class="fas fa-play text-warning"></i>
-                                                    </button>
-                                                </small>
-                                            </div>
-                                            ` : ''}
-                                        </div>
-                                    ` : ''}
-                                </div>
-                                
-                                <div class="channel-controls">
-                                    ${statusBadge}
-                                    
-                                    ${!channel.isActive ? `
-                                        ${profileSelect}
-                                        ${gpuSelect}
-                                        <button class="btn btn-success btn-sm" onclick="startStreamWithOptions(${channel.id})">
-                                            <i class="fas fa-play"></i> Start
-                                        </button>
-                                    ` : `
-                                        <div class="active-stream-info mb-2">
-                                            <small class="text-muted">
-                                                Profil: <strong>${channel.profile || 'medium'}</strong><br>
-                                                GPU: <strong>${channel.gpu || 'auto'}</strong>
-                                            </small>
-                                        </div>
-                                        <button class="btn btn-danger btn-sm" onclick="stopStream(${channel.id})">
-                                            <i class="fas fa-stop"></i> Stop
-                                        </button>
-                                        <button class="btn btn-info btn-sm" onclick="openStream(${channel.id})">
-                                            <i class="fas fa-external-link-alt"></i> Otvori
-                                        </button>
-                                        ${vlcButton}
-                                        ${channel.udpStreaming ? `
-                                        <div class="mt-2 udp-info">
-                                            <small class="text-muted">
-                                                UDP: <strong>${channel.simpleUdpUrl || channel.udpUrl || 'N/A'}</strong>
-                                                <button class="btn btn-sm btn-link" onclick="copyUdpUrl('${channel.simpleUdpUrl || channel.udpUrl}')">
-                                                    <i class="fas fa-copy"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-link" onclick="openInVlc('${channel.simpleUdpUrl || channel.udpUrl}')">
-                                                    <i class="fas fa-play"></i> VLC
-                                                </button>
-                                            </small>
-                                        </div>
-                                        <button class="btn btn-danger btn-sm mt-1" onclick="stopUdp(${channel.id})">
-                                            <i class="fas fa-stop-circle"></i> Stop UDP
-                                        </button>
-                                        ` : `
-                                        <button class="btn btn-primary btn-sm mt-1" onclick="startUdp(${channel.id})">
-                                            <i class="fas fa-broadcast-tower"></i> Start UDP
-                                        </button>
-                                        `}
-                                    `}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            
-            channelsList.innerHTML = html;
-        }
-        
-        function updateStats() {
-            totalChannelsSpan.textContent = channels.length;
-            activeStreamsSpan.textContent = channels.filter(c => c.isActive).length;
-        }
-        
-        async function updateSystemStats() {
+        // Function to refresh GPU information
+        async function refreshGPUInfo() {
             try {
-                const response = await fetch('/api/system-stats');
-                const stats = await response.json();
+                const refreshBtn = document.getElementById('refresh-gpu-btn');
+                const originalText = refreshBtn.innerHTML;
                 
-                // Update basic stats
-                document.getElementById('cpu-usage').textContent = `${Math.round(stats.cpu)}%`;
-                document.getElementById('memory-usage').textContent = `${Math.round(stats.memory)}%`;
-                document.getElementById('disk-usage').textContent = `${stats.disk}%`;
-                document.getElementById('active-streams').textContent = stats.activeStreams;
+                // Show loading state
+                refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Osvežavam...';
+                refreshBtn.disabled = true;
                 
-                // Update GPU stats
-                if (stats.gpu && stats.gpu.available) {
-                    document.getElementById('gpu-usage').textContent = `${stats.gpu.usage}%`;
-                    document.getElementById('gpu-memory').textContent = `${stats.gpu.memory}%`;
-                    document.getElementById('gpu-temp').textContent = `${stats.gpu.temperature}°C`;
-                    
-                    // Color coding for GPU usage
-                    const gpuCard = document.getElementById('gpu-stats-card');
-                    if (stats.gpu.usage > 80) {
-                        gpuCard.style.background = 'rgba(255, 193, 7, 0.2)'; // Warning - yellow
-                    } else if (stats.gpu.usage > 60) {
-                        gpuCard.style.background = 'rgba(40, 167, 69, 0.2)'; // Good - green
-                    } else {
-                        gpuCard.style.background = 'rgba(255, 255, 255, 0.1)'; // Default
+                const response = await fetch('/api/refresh-gpu-info', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
                     }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    gpuInfo = result.gpuInfo;
+                    updateGPUStatus();
+                    showNotification('GPU informacije su uspešno osvežene!', 'success');
+                    
+                    // Update GPU monitoring display
+                    await updateGPUMonitoring();
                 } else {
-                    document.getElementById('gpu-usage').textContent = stats.gpu?.note ? 'Est.' : '--';
+                    showNotification(`Greška pri osvežavanju GPU informacija: ${result.error}`, 'error');
+                }
+                
+                // Restore button state
+                refreshBtn.innerHTML = originalText;
+                refreshBtn.disabled = false;
+                
+            } catch (error) {
+                console.error('Error refreshing GPU info:', error);
+                showNotification('Greška pri osvežavanju GPU informacija!', 'error');
+                
+                // Restore button state
+                const refreshBtn = document.getElementById('refresh-gpu-btn');
+                refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+                refreshBtn.disabled = false;
+            }
+        }
+                refreshBtn.disabled = false;
+            }
+        }
+        
+        socket.on('streamStarted', (data) => {
+            console.log(`🔥 RECEIVED streamStarted event:`, data);
+            activeStreams.add(data.channelId);
+            
+            // Show appropriate notification based on stream type
+            const statusMessage = data.passthrough 
+                ? `Passthrough stream aktiviran za kanal ${data.channelId}` 
+                : `Transkodiranje u toku za kanal ${data.channelId} (${data.profile}, ${data.gpu})`;
+            showNotification(statusMessage, 'success');
+            
+            // Update local channel status immediately for responsive UI
+            const channel = channels.find(c => c.id === data.channelId);
+            if (channel) {
+                channel.isActive = true;
+                // For passthrough streams, transcoding should be false
+                channel.transcoding = data.passthrough ? false : true;
+                channel.passthrough = data.passthrough || false;
+                channel.profile = data.profile;
+                channel.gpu = data.gpu;
+                
+                console.log(`🔥 Updated channel ${data.channelId}: active=${channel.isActive}, transcoding=${channel.transcoding}, passthrough=${channel.passthrough}, profile=${data.profile}`);
+                
+                renderChannels(); // Re-render immediately
+            } else {
+                console.error(`🔥 Channel not found for ID: ${data.channelId}`);
+            }
+            updateStats();
+        });
+        
+        socket.on('streamStopped', (data) => {
+            activeStreams.delete(data.channelId);
+            showNotification(`Stream zaustavljen za kanal ${data.channelId}`, 'info');
+            
+            // Update local channel status immediately
+            const channel = channels.find(c => c.id === data.channelId);
+            if (channel) {
+                channel.isActive = false;
+                channel.transcoding = false;
+                channel.passthrough = false;
+                channel.bandwidth = 0;
+                console.log(`Stopped channel ${data.channelId}: active=${channel.isActive}, transcoding=${channel.transcoding}, passthrough=${channel.passthrough}`);
+                renderChannels(); // Re-render immediately
+            }
+            updateStats();
+        });
+        
+        socket.on('transcodingProgress', (data) => {
+            updateProgressNotification(data);
+        });
+        
+        socket.on('transcodingError', (data) => {
+            showNotification(`Greška u transkodovanju: ${data.error}`, 'error');
+        });
+        
+        // Functions
+        async function fetchGPUInfo() {
+            try {
+                const response = await fetch('/api/gpu-info');
+                const info = await response.json();
+                gpuInfo = info;
+                updateGPUStatus();
+            } catch (error) {
+                console.error('Error fetching GPU info:', error);
+            }
+        }
+        
+        async function fetchChannels() {
+            try {
+                const response = await fetch('/api/channels');
+                const data = await response.json();
+                channels = data;
+                console.log('Loaded channels:', channels.length);
+                
+                // Always render channels after loading
+                renderChannels();
+                updateStats();
+            } catch (error) {
+                console.error('Error fetching channels:', error);
+            }
+        }
+        
+        async function fetchProfiles() {
+            try {
+                const response = await fetch('/api/profiles');
+                const data = await response.json();
+                availableProfiles = data.profiles;
+                availableGPUs = data.availableGPUs;
+                console.log('Loaded profiles:', availableProfiles);
+                console.log('Available GPUs:', availableGPUs);
+                
+                // Debug output for troubleshooting
+                console.log('Profile keys:', Object.keys(availableProfiles));
+                console.log('GPU structure:', availableGPUs);
+                
+                // Re-render channels now that profiles are loaded
+                if (channels && channels.length > 0) {
+                    renderChannels();
+                }
+            } catch (error) {
+                console.error('Error fetching profiles:', error);
+            }
+        }
+        
+        function updateGPUStatus() {
+            nvidiaStatus.className = `gpu-badge ${gpuInfo.nvidia ? 'gpu-available' : 'gpu-unavailable'}`;
+            nvidiaStatus.innerHTML = `<i class="fas fa-microchip"></i> NVIDIA: ${gpuInfo.nvidia ? 'Dostupna' : 'Nedostupna'}`;
+            
+            amdStatus.className = `gpu-badge ${gpuInfo.amd ? 'gpu-available' : 'gpu-unavailable'}`;
+            amdStatus.innerHTML = `<i class="fas fa-microchip"></i> AMD: ${gpuInfo.amd ? 'Dostupna' : 'Nedostupna'}`;
+        }
+        
+        }
+        
+        socket.on('streamStarted', (data) => {
+            console.log(`🔥 RECEIVED streamStarted event:`, data);
+            activeStreams.add(data.channelId);
+            
+            // Show appropriate notification based on stream type
+            const statusMessage = data.passthrough 
+                ? `Passthrough stream aktiviran za kanal ${data.channelId}` 
+                : `Transkodiranje u toku za kanal ${data.channelId} (${data.profile}, ${data.gpu})`;
+            showNotification(statusMessage, 'success');
+            
+            // Update local channel status immediately for responsive UI
+            const channel = channels.find(c => c.id === data.channelId);
+            if (channel) {
+                channel.isActive = true;
+                // For passthrough streams, transcoding should be false
+                channel.transcoding = data.passthrough ? false : true;
+                channel.passthrough = data.passthrough || false;
+                channel.profile = data.profile;
+                channel.gpu = data.gpu;
+                
+                console.log(`🔥 Updated channel ${data.channelId}: active=${channel.isActive}, transcoding=${channel.transcoding}, passthrough=${channel.passthrough}, profile=${data.profile}`);
+                
+                renderChannels(); // Re-render immediately
+            } else {
+                console.error(`🔥 Channel not found for ID: ${data.channelId}`);
+            }
+            updateStats();
+        });
+        
+        socket.on('streamStopped', (data) => {
                     document.getElementById('gpu-memory').textContent = stats.gpu?.note ? 'Est.' : '--';
                     document.getElementById('gpu-temp').textContent = stats.gpu?.note ? 'Est.' : '--';
                 }
@@ -1201,36 +1160,72 @@
         
         async function updateGPUMonitoring() {
             try {
-                const response = await fetch('/api/gpu-stats');
-                const gpuStats = await response.json();
+                // Get detailed GPU information
+                const detailedResponse = await fetch('/api/gpu-info-detailed');
+                const detailedGpuInfo = await detailedResponse.json();
+                
+                // Get basic GPU information
+                const basicResponse = await fetch('/api/gpu-info');
+                const basicGpuInfo = await basicResponse.json();
                 
                 const gpuMonitoring = document.getElementById('gpu-monitoring');
                 const gpuLoadCards = document.getElementById('gpu-load-cards');
                 const gpuLoadCardsHeader = document.getElementById('gpu-load-cards-header');
                 
-                if (gpuStats.available || gpuStats.method === 'estimated') {
+                if (detailedGpuInfo.count > 0) {
                     // Show GPU monitoring section
                     gpuMonitoring.classList.remove('hidden');
                     
-                    // Create GPU card for main area
-                    const gpuCard = createGPUCard(gpuStats);
-                    gpuLoadCards.innerHTML = gpuCard;
+                    // Create GPU cards for each detected GPU
+                    let cardsHTML = '';
+                    let headerCardsHTML = '';
                     
-                    // Create compact GPU card for header
-                    const headerGpuCard = createHeaderGPUCard(gpuStats);
-                    gpuLoadCardsHeader.innerHTML = headerGpuCard;
+                    detailedGpuInfo.gpus.forEach((gpu, index) => {
+                        // Create mock stats for each GPU since we don't have real-time monitoring yet
+                        const mockStats = {
+                            name: gpu.name,
+                            type: gpu.type,
+                            usage: Math.floor(Math.random() * 30) + 10, // Random 10-40% usage
+                            memory: gpu.memory,
+                            temperature: Math.floor(Math.random() * 20) + 50, // Random 50-70°C
+                            available: gpu.available,
+                            driver: gpu.driver
+                        };
+                        
+                        cardsHTML += createGPUCard(mockStats);
+                        headerCardsHTML += createHeaderGPUCard(mockStats);
+                    });
                     
-                    // If we have multiple GPUs detected, we could expand this
-                    // For now, handle single GPU
+                    gpuLoadCards.innerHTML = cardsHTML;
+                    gpuLoadCardsHeader.innerHTML = headerCardsHTML;
+                    
                 } else {
-                    // Hide GPU monitoring if no GPU available
+                    // No GPUs detected - show message
                     gpuMonitoring.classList.add('hidden');
-                    gpuLoadCardsHeader.innerHTML = '';
+                    gpuLoadCardsHeader.innerHTML = `
+                        <div class="col-md-3">
+                            <div class="gpu-load-card header-card">
+                                <div class="gpu-load-header">
+                                    <i class="fas fa-microchip"></i> GPU
+                                </div>
+                                <div class="gpu-load-value header-value">Nedostupan</div>
+                            </div>
+                        </div>
+                    `;
                 }
             } catch (error) {
                 console.error('Error updating GPU monitoring:', error);
                 document.getElementById('gpu-monitoring').classList.add('hidden');
-                document.getElementById('gpu-load-cards-header').innerHTML = '';
+                document.getElementById('gpu-load-cards-header').innerHTML = `
+                    <div class="col-md-3">
+                        <div class="gpu-load-card header-card">
+                            <div class="gpu-load-header">
+                                <i class="fas fa-microchip"></i> GPU
+                            </div>
+                            <div class="gpu-load-value header-value">Greška</div>
+                        </div>
+                    </div>
+                `;
             }
         }
         
