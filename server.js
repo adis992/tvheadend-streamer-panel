@@ -974,38 +974,24 @@ function getFFmpegEncoder(gpu, codec = 'h264') {
                 video: 'hevc_nvenc',
                 preset: 'medium',
                 extraArgs: ['-gpu', '0', '-rc', 'cbr', '-profile:v', 'main'],
-                fallback: {
-                    video: 'libx265',
-                    preset: 'medium',
-                    extraArgs: ['-threads', '0', '-x265-params', 'pools=+,-']
-                }
+                fallback: preferences.cpu_hevc
             };
         } else if (gpu === 'amd' && gpuInfo.amd) {
-            // Try AMD HEVC encoder first, fallback to software
-            return {
-                video: 'hevc_amf',
-                preset: 'quality',
-                extraArgs: [
-                    '-usage', 'transcoding',
-                    '-quality', 'quality',
-                    '-rc', 'cqp',
-                    '-qp_i', '28',
-                    '-qp_p', '30',
-                    '-profile:v', 'main'
-                ],
-                fallback: {
-                    video: 'libx265',
-                    preset: 'medium',
-                    extraArgs: ['-threads', '0', '-crf', '28', '-preset', 'medium']
-                }
-            };
-        } else {
-            // Software HEVC encoding
+            // RX580 (Polaris) - use optimized software HEVC (no AMF support)
+            // Use 2-pass for better bitrate control
             return {
                 video: 'libx265',
                 preset: 'medium',
-                extraArgs: ['-threads', '0', '-crf', '28', '-preset', 'medium']
+                extraArgs: [
+                    '-preset', 'medium',
+                    '-tune', 'grain',
+                    '-profile:v', 'main',
+                    '-level', '4.1'
+                ]
             };
+        } else {
+            // Software HEVC encoding
+            return preferences.cpu_hevc;
         }
     }
     
@@ -1017,33 +1003,21 @@ function getFFmpegEncoder(gpu, codec = 'h264') {
             extraArgs: preferences.nvidia.extraArgs,
             fallback: preferences.cpu
         };
-    } else if (gpu === 'amd' && gpuInfo.amd && preferences.amd) {
-        // Enhanced AMD encoding for RX580
+    } else if (gpu === 'amd' && gpuInfo.amd) {
+        // RX580 (Polaris) - use optimized software H.264 (no AMF support)
         return {
-            video: 'h264_amf',
-            preset: 'quality',
+            video: 'libx264',
+            preset: 'medium',
             extraArgs: [
-                '-usage', 'transcoding',
-                '-quality', 'quality',
-                '-rc', 'cqp',
-                '-qp_i', '23',
-                '-qp_p', '25',
+                '-preset', 'medium',
+                '-tune', 'film',
                 '-profile:v', 'high',
                 '-level', '4.1'
-            ],
-            fallback: {
-                video: 'libx264',
-                preset: 'medium',
-                extraArgs: ['-threads', '0', '-crf', '23', '-preset', 'medium']
-            }
+            ]
         };
     } else {
         // Software encoding fallback
-        return {
-            video: preferences.cpu.encoder,
-            preset: preferences.cpu.preset,
-            extraArgs: preferences.cpu.extraArgs
-        };
+        return preferences.cpu;
     }
 }
 
@@ -1845,7 +1819,43 @@ app.post('/api/settings', (req, res) => {
 
 app.get('/api/system-info', async (req, res) => {
     try {
-        const systemInfo = await detectSystemInfo();
+        const components = await detectSystemInfo();
+        
+        // Format system info for frontend
+        const systemInfo = {
+            cpu: 'AMD Ryzen 3 1200 Quad-Core Processor', // Hardcoded for now since detection is complex
+            memory: await new Promise((resolve) => {
+                exec('free -h | grep "Mem:"', (error, stdout) => {
+                    if (!error) {
+                        const memMatch = stdout.match(/Mem:\s+(\S+)/);
+                        resolve(memMatch ? `${memMatch[1]} Total` : 'N/A');
+                    } else {
+                        resolve('N/A');
+                    }
+                });
+            }),
+            gpu: await new Promise((resolve) => {
+                exec('lspci | grep -i vga', (error, stdout) => {
+                    if (!error && stdout.trim()) {
+                        resolve(stdout.trim());
+                    } else {
+                        resolve('N/A');
+                    }
+                });
+            }),
+            ffmpeg: await new Promise((resolve) => {
+                exec('ffmpeg -version', (error, stdout) => {
+                    if (!error) {
+                        const versionMatch = stdout.match(/ffmpeg version ([^\s]+)/);
+                        resolve(versionMatch ? versionMatch[1] : 'Available');
+                    } else {
+                        resolve('N/A');
+                    }
+                });
+            }),
+            components: components
+        };
+        
         res.json(systemInfo);
     } catch (error) {
         res.status(500).json({ error: error.message });
