@@ -48,6 +48,7 @@ const bodyParser = require('body-parser');
 const fs = require('fs-extra');
 const { spawn, exec } = require('child_process');
 const fetch = require('node-fetch');
+const axios = require('axios');
 
 const ACTIVE_STREAMS_FILE = path.join(__dirname, 'active-streams.json');
 
@@ -118,12 +119,16 @@ let activeUdpStreams = new Map();
 let streamStats = new Map();
 
 // Socket.IO events
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
     console.log('Client connected');
+    
+    // Get detailed GPU information
+    const detailedGpus = await detectMultipleGPUs();
     
     // Send initial data
     socket.emit('channelsUpdated', channels);
     socket.emit('gpuInfo', gpuInfo);
+    socket.emit('availableGPUs', detailedGpus);
     socket.emit('tvheadendStatus', tvheadendStatus);
     
     socket.on('disconnect', () => {
@@ -1817,6 +1822,37 @@ app.post('/api/settings', (req, res) => {
     }
 });
 
+// API endpoint to save channel settings
+app.post('/api/save-channel-settings/:channelId', (req, res) => {
+    try {
+        const channelId = req.params.channelId;
+        const { profile, gpu } = req.body;
+        
+        console.log(`📝 Saving channel settings: ${channelId} - profile: ${profile}, gpu: ${gpu}`);
+        
+        // Find and update channel in the channels array
+        const channelIndex = channels.findIndex(c => c.id === channelId);
+        if (channelIndex !== -1) {
+            channels[channelIndex].profile = profile || 'passthrough';
+            channels[channelIndex].gpu = gpu || 'auto';
+            
+            // Emit updated channels to all clients
+            io.emit('channelsUpdated', channels);
+            
+            res.json({ 
+                success: true, 
+                message: `Channel ${channelId} settings saved successfully`,
+                channel: channels[channelIndex]
+            });
+        } else {
+            res.status(404).json({ error: `Channel ${channelId} not found` });
+        }
+    } catch (error) {
+        console.error('Error saving channel settings:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.get('/api/system-info', async (req, res) => {
     try {
         const components = await detectSystemInfo();
@@ -2476,7 +2512,7 @@ app.post('/api/update-system', async (req, res) => {
             }
         });
     } catch (error) {
-        log.error(`Error in update system endpoint: ${error.message}`);
+        console.error(`Error in update system endpoint: ${error.message}`);
         console.error('Error updating system:', error);
         res.status(500).json({ 
             success: false, 
@@ -2853,6 +2889,7 @@ app.post('/api/refresh-gpu-info', async (req, res) => {
         
         // Emit updated info to all connected clients
         io.emit('gpuInfoUpdated', updatedGpuInfo);
+        io.emit('availableGPUs', detailedGpus);
         io.emit('detailedGpuInfoUpdated', {
             gpus: detailedGpus,
             count: detailedGpus.length,
@@ -2875,6 +2912,57 @@ app.post('/api/refresh-gpu-info', async (req, res) => {
     }
 });
 
+// Function to load channels from TVHeadend
+async function loadChannelsFromTVHeadend() {
+    try {
+        const url = `http://${config.tvheadend.host}:${config.tvheadend.port}/api/channel/grid`;
+        const auth = {
+            username: config.tvheadend.username,
+            password: config.tvheadend.password
+        };
+
+        console.log('Loading channels from TVHeadend...');
+        const response = await axios.get(url, { 
+            auth,
+            timeout: config.tvheadend.timeout || 10000 
+        });
+
+        if (response.data && response.data.entries) {
+            channels = response.data.entries.map(channel => ({
+                id: channel.uuid,
+                name: channel.name,
+                number: channel.number,
+                enabled: channel.enabled,
+                uuid: channel.uuid,
+                services: channel.services,
+                logo: '', // TVHeadend ne vraća logo direktno
+                url: `http://${config.tvheadend.host}:${config.tvheadend.port}/stream/channel/${channel.uuid}`,
+                group: 'TV Channels',
+                isActive: false,
+                transcoding: false,
+                profile: 'medium',
+                gpu: 'auto',
+                bandwidth: 0,
+                totalData: 0
+            }));
+
+            console.log(`Loaded ${channels.length} channels from TVHeadend`);
+            return true;
+        } else {
+            console.warn('No channels received from TVHeadend');
+            return false;
+        }
+    } catch (error) {
+        console.error('Error loading channels from TVHeadend:', error.message);
+        return false;
+    }
+}
+
+// Load channels from TVHeadend on startup
+(async () => {
+    await loadChannelsFromTVHeadend();
+})();
+
 // Start the HTTP server
 const PORT = config.server && config.server.port ? config.server.port : 3000;
 server.listen(PORT, async () => {
@@ -2892,6 +2980,19 @@ server.listen(PORT, async () => {
             
             // Update global gpuInfo
             Object.assign(gpuInfo, updatedGpuInfo);
+            
+            // Notify all connected clients about GPU info update
+            io.emit('gpuInfo', gpuInfo);
+            
+            // Load channels from TVHeadend
+            console.log('Loading channels from TVHeadend...');
+            const channelsLoaded = await loadChannelsFromTVHeadend();
+            if (!channelsLoaded) {
+                console.log('Failed to load channels from TVHeadend, using demo channels');
+            }
+            
+            // Notify all connected clients about channels update
+            io.emit('channelsUpdated', channels);
             
         } catch (error) {
             console.error('Error during automatic GPU refresh:', error);

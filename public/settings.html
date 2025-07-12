@@ -305,12 +305,25 @@
                         
                         <div class="mb-3">
                             <label class="form-label">Video Codec:</label>
-                            <input type="text" id="profile-codec" class="form-control" value="h264_nvenc" placeholder="e.g., h264_nvenc">
+                            <select id="profile-codec" class="form-select" aria-label="Select codec">
+                                <option value="h264">H.264 (AVC)</option>
+                                <option value="hevc">H.265 (HEVC)</option>
+                            </select>
                         </div>
                         
                         <div class="mb-3">
                             <label class="form-label">Preset:</label>
-                            <input type="text" id="profile-preset" class="form-control" value="fast" placeholder="e.g., fast, medium, slow">
+                            <select id="profile-preset" class="form-select" aria-label="Select preset">
+                                <option value="ultrafast">ultrafast</option>
+                                <option value="superfast">superfast</option>
+                                <option value="veryfast">veryfast</option>
+                                <option value="faster">faster</option>
+                                <option value="fast" selected>fast</option>
+                                <option value="medium">medium</option>
+                                <option value="slow">slow</option>
+                                <option value="slower">slower</option>
+                                <option value="veryslow">veryslow</option>
+                            </select>
                         </div>
                         
                         <div class="mb-3">
@@ -439,13 +452,17 @@
                 
                 // Convert profiles object to array format expected by frontend
                 if (data.profiles) {
-                    profiles = Object.keys(data.profiles).map(key => ({
-                        name: key,
-                        ...data.profiles[key],
-                        gpu: 'auto', // Default GPU setting
-                        codec: 'H.264', // Default codec
-                        preset: 'fast' // Default preset
-                    }));
+                    profiles = Object.keys(data.profiles).map(key => {
+                        const profile = data.profiles[key];
+                        return {
+                            name: key,
+                            ...profile,
+                            // Use actual codec from profile if exists, or set default
+                            gpu: profile.gpu || 'auto',
+                            codec: profile.codec || 'h264',
+                            preset: profile.preset || 'fast'
+                        };
+                    });
                 } else {
                     profiles = [];
                 }
@@ -504,6 +521,11 @@
                 const gpuBadge = profile.gpu === 'nvidia' ? 'badge-nvidia' : 
                                profile.gpu === 'amd' ? 'badge-amd' : 'badge-software';
                 
+                // Format codec name for display
+                const codecName = profile.codec === 'h264' ? 'H.264 (AVC)' : 
+                                 profile.codec === 'hevc' ? 'H.265 (HEVC)' : 
+                                 profile.codec === 'copy' ? 'Passthrough' : profile.codec;
+                
                 return `
                     <div class="card profile-card">
                         <div class="card-body">
@@ -512,11 +534,11 @@
                                     <h6 class="card-title mb-1">${profile.name}</h6>
                                     <div class="d-flex gap-2 mb-2">
                                         <span class="profile-badge ${gpuBadge}">${profile.gpu.toUpperCase()}</span>
-                                        <span class="badge bg-secondary">${profile.width}x${profile.height}</span>
-                                        <span class="badge bg-info">${profile.bitrate}</span>
+                                        <span class="badge bg-secondary">${profile.width || 'Native'}${profile.width ? 'x' + profile.height : ''}</span>
+                                        <span class="badge bg-info">${profile.bitrate || 'Original'}</span>
                                     </div>
                                     <small class="text-muted">
-                                        Codec: ${profile.codec} | Preset: ${profile.preset}
+                                        Codec: ${codecName} | Preset: ${profile.preset || 'Default'}
                                     </small>
                                 </div>
                                 <div>
@@ -568,7 +590,10 @@
                 bitrate: document.getElementById('profile-bitrate').value,
                 codec: document.getElementById('profile-codec').value,
                 preset: document.getElementById('profile-preset').value,
-                customArgs: document.getElementById('profile-args').value
+                customArgs: document.getElementById('profile-args').value,
+                audioBitrate: '128k', // Default audio bitrate
+                fps: document.getElementById('profile-width').value >= 1920 ? 30 : 25, // Higher FPS for higher resolutions
+                description: `${document.getElementById('profile-codec').value.toUpperCase()} ${document.getElementById('profile-width').value}p Custom Profile`
             };
             
             if (!profileData.name) {
@@ -700,15 +725,19 @@
         // Function to update a profile
         async function updateProfile() {
             const originalName = document.getElementById('edit-profile-name').dataset.originalName;
+            const width = parseInt(document.getElementById('edit-profile-width').value);
             const profileData = {
                 name: document.getElementById('edit-profile-name').value,
                 gpu: document.getElementById('edit-profile-gpu').value,
-                width: parseInt(document.getElementById('edit-profile-width').value),
+                width: width,
                 height: parseInt(document.getElementById('edit-profile-height').value),
                 bitrate: document.getElementById('edit-profile-bitrate').value,
                 codec: document.getElementById('edit-profile-codec').value,
                 preset: document.getElementById('edit-profile-preset').value,
-                customArgs: document.getElementById('edit-profile-args').value
+                customArgs: document.getElementById('edit-profile-args').value,
+                audioBitrate: width >= 1920 ? '192k' : '128k', // Higher audio bitrate for HD content
+                fps: width >= 1920 ? 30 : 25, // Higher FPS for HD content
+                description: `${document.getElementById('edit-profile-codec').value === 'h264' ? 'H.264' : 'HEVC'} ${width}p Custom Profile`
             };
             
             if (!profileData.name) {
