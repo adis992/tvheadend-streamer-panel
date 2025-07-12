@@ -1867,6 +1867,19 @@
                 console.error('Error loading detailed GPU info:', error);
             }
         }
+        
+        // Initialize page on load
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('Page loaded, initializing...');
+            
+            // Load initial data
+            await updateGPUMonitoring();
+            await loadChannelResolutions();
+            await loadChannelData();
+            updateGPUStatus();
+            
+            console.log('Page initialization complete');
+        });
     </script>
     </div> <!-- End main-content -->
 </body>
