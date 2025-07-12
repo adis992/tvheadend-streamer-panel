@@ -1,8 +1,10 @@
 [
   {
-    "type": "hls",
-    "channelId": "1",
+    "type": "udp",
+    "channelId": "a302e8054d0cbfc84e0e07cab516a2d3",
     "profile": "passthrough",
-    "gpu": "amd"
+    "gpu": "amd",
+    "ip": "239.255.0.1",
+    "port": 1234
   }
 ]

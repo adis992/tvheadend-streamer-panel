@@ -119,16 +119,20 @@ let activeUdpStreams = new Map();
 let streamStats = new Map();
 
 // Socket.IO events
+let cachedGPUs = [];
+
 io.on('connection', async (socket) => {
     console.log('Client connected');
     
-    // Get detailed GPU information
-    const detailedGpus = await detectMultipleGPUs();
+    // Get detailed GPU information (cache if empty)
+    if (cachedGPUs.length === 0) {
+        cachedGPUs = await detectMultipleGPUs();
+    }
     
     // Send initial data
     socket.emit('channelsUpdated', channels);
     socket.emit('gpuInfo', gpuInfo);
-    socket.emit('availableGPUs', detailedGpus);
+    socket.emit('availableGPUs', cachedGPUs);
     socket.emit('tvheadendStatus', tvheadendStatus);
     
     socket.on('disconnect', () => {
@@ -2820,7 +2824,7 @@ async function detectMultipleGPUs() {
                 }
             });
         } catch (nvidiaError) {
-            console.log('NVIDIA GPUs not detected or nvidia-smi not available');
+            // Silently skip NVIDIA detection if not available
         }
         
         // Check for AMD GPUs
@@ -2886,6 +2890,9 @@ app.post('/api/refresh-gpu-info', async (req, res) => {
         
         // Also get detailed GPU info
         const detailedGpus = await detectMultipleGPUs();
+        
+        // Update cache
+        cachedGPUs = detailedGpus;
         
         // Emit updated info to all connected clients
         io.emit('gpuInfoUpdated', updatedGpuInfo);
