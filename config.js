@@ -39,110 +39,68 @@ module.exports = {
                 description: 'Direct passthrough without transcoding',
                 passthrough: true
             },
-            // Optimized profiles for AMD RX 580
-            'low_amd': {
-                description: 'Low quality for mobile/slow connections (AMD optimized)',
-                width: 854,
-                height: 480,
-                bitrate: '800k',
-                audioBitrate: '96k',
-                fps: 25,
-                preset: 'medium', // Better quality/speed balance for libx264
-                extraArgs: ['-hwaccel', 'auto', '-profile:v', 'main', '-level', '3.1']
-            },
-            'medium_amd': {
-                description: 'Medium quality for most users (AMD optimized)',
+            // HEVC profiles for best compression
+            'hevc_hd': {
+                description: 'HEVC HD 720p - 3.5MB/s max bitrate',
                 width: 1280,
                 height: 720,
-                bitrate: '1800k',
+                bitrate: '3500k',
                 audioBitrate: '128k',
                 fps: 25,
-                preset: 'medium',
-                extraArgs: ['-hwaccel', 'auto', '-profile:v', 'high', '-level', '4.0']
+                codec: 'hevc'
             },
-            'high_amd': {
-                description: 'High quality for good connections (AMD optimized)',
+            'hevc_fhd': {
+                description: 'HEVC FHD 1080p - 4MB/s max bitrate', 
                 width: 1920,
                 height: 1080,
-                bitrate: '3500k',
+                bitrate: '4000k',
                 audioBitrate: '192k',
                 fps: 30,
-                preset: 'medium',
-                extraArgs: ['-hwaccel', 'auto', '-profile:v', 'high', '-level', '4.2']
+                codec: 'hevc'
+            },
+            // H.264 profiles for compatibility
+            'h264_hd': {
+                description: 'H.264 HD 720p - 3.5MB/s max bitrate',
+                width: 1280,
+                height: 720,
+                bitrate: '3500k',
+                audioBitrate: '128k',
+                fps: 25,
+                codec: 'h264'
+            },
+            'h264_fhd': {
+                description: 'H.264 FHD 1080p - 4MB/s max bitrate',
+                width: 1920,
+                height: 1080,
+                bitrate: '4000k',
+                audioBitrate: '192k',
+                fps: 30,
+                codec: 'h264'
             },
             // Legacy profiles (keep for compatibility)
             'low': {
                 width: 640,
                 height: 480,
-                bitrate: '500k',
-                audioBitrate: '64k',
-                fps: 25
+                bitrate: '800k',
+                audioBitrate: '96k',
+                fps: 25,
+                codec: 'h264'
             },
             'medium': {
                 width: 1280,
                 height: 720,
-                bitrate: '1500k',
+                bitrate: '2000k',
                 audioBitrate: '128k',
-                fps: 25
+                fps: 25,
+                codec: 'h264'
             },
             'high': {
                 width: 1920,
                 height: 1080,
-                bitrate: '3000k',
-                audioBitrate: '192k',
-                fps: 30
-            },
-            'ultra': {
-                width: 2560,
-                height: 1440,
-                bitrate: '6000k',
-                audioBitrate: '256k',
-                fps: 30
-            },
-            'hevc_low': {
-                description: 'HEVC Low quality - efficient compression (400kbps)',
-                width: 640,
-                height: 480,
-                bitrate: '400k',
-                audioBitrate: '64k',
-                fps: 25,
-                codec: 'hevc'
-            },
-            'hevc_medium': {
-                description: 'HEVC Medium quality - balanced compression (1.2Mbps)',
-                width: 1280,
-                height: 720,
-                bitrate: '1200k',
-                audioBitrate: '128k',
-                fps: 25,
-                codec: 'hevc'
-            },
-            'hevc_high': {
-                description: 'HEVC High quality - excellent compression (2.5Mbps)',
-                width: 1920,
-                height: 1080,
-                bitrate: '2500k',
+                bitrate: '3500k',
                 audioBitrate: '192k',
                 fps: 30,
-                codec: 'hevc'
-            },
-            'hevc_fhd_compressed': {
-                description: 'HEVC FHD Highly Compressed - 10Mbps to ~3Mbps',
-                width: 1920,
-                height: 1080,
-                bitrate: '3000k',
-                audioBitrate: '192k',
-                fps: 30,
-                codec: 'hevc'
-            },
-            'hevc_4k_compressed': {
-                description: 'HEVC 4K Compressed - suitable for high bitrate sources',
-                width: 3840,
-                height: 2160,
-                bitrate: '8000k',
-                audioBitrate: '256k',
-                fps: 30,
-                codec: 'hevc'
+                codec: 'h264'
             }
         },
         
@@ -151,19 +109,27 @@ module.exports = {
             nvidia: {
                 encoder: 'h264_nvenc',
                 preset: 'fast',
-                extraArgs: ['-gpu', '0', '-rc', 'cbr']
+                extraArgs: ['-gpu', '0', '-rc', 'cbr'],
+                fallback: {
+                    encoder: 'libx264',
+                    preset: 'fast',
+                    extraArgs: ['-threads', '0']
+                }
             },
             amd: {
-                encoder: 'h264_amf', // Use AMD hardware encoder
-                preset: 'quality', // Better quality for AMD RX 580
+                encoder: 'h264_amf', // AMD hardware encoder for H.264
+                preset: 'quality',
                 extraArgs: [
                     '-usage', 'transcoding',
                     '-quality', 'quality',
-                    '-rc', 'cqp',
-                    '-qp_i', '23',
-                    '-qp_p', '25',
+                    '-rc', 'cbr', // Use CBR for consistent bitrate
                     '-profile:v', 'high'
-                ]
+                ],
+                fallback: {
+                    encoder: 'libx264',
+                    preset: 'fast',
+                    extraArgs: ['-threads', '0', '-profile:v', 'high']
+                }
             },
             amd_hevc: {
                 encoder: 'hevc_amf', // AMD HEVC encoder
@@ -171,17 +137,25 @@ module.exports = {
                 extraArgs: [
                     '-usage', 'transcoding',
                     '-quality', 'quality',
-                    '-rc', 'cqp',
-                    '-qp_i', '28',
-                    '-qp_p', '30',
+                    '-rc', 'cbr', // Use CBR for consistent bitrate
                     '-profile:v', 'main',
                     '-tier', 'main'
-                ]
+                ],
+                fallback: {
+                    encoder: 'libx265',
+                    preset: 'fast',
+                    extraArgs: ['-threads', '0', '-crf', '28', '-profile:v', 'main']
+                }
             },
             intel: {
                 encoder: 'h264_qsv',
                 preset: 'fast',
-                extraArgs: ['-look_ahead', '1']
+                extraArgs: ['-look_ahead', '1'],
+                fallback: {
+                    encoder: 'libx264',
+                    preset: 'fast',
+                    extraArgs: ['-threads', '0']
+                }
             },
             cpu: {
                 encoder: 'libx264',
@@ -190,7 +164,7 @@ module.exports = {
             },
             cpu_hevc: {
                 encoder: 'libx265',
-                preset: 'medium',
+                preset: 'fast',
                 extraArgs: ['-threads', '0', '-crf', '28']
             }
         }

@@ -2620,8 +2620,12 @@ log "AMD GPU support installation completed successfully!"
                 
                 // Trigger GPU detection refresh
                 setTimeout(() => {
-                    detectGPU();
-                }, 2000);
+                    detectGPU().then(() => {
+                        // Emit updated GPU info to all clients
+                        io.emit('gpuInfoUpdated', gpuInfo);
+                        console.log('GPU detection refreshed after AMD installation:', gpuInfo);
+                    });
+                }, 3000); // Wait 3 seconds for drivers to settle
             } else {
                 log.error(`AMD GPU installation failed with code ${code}`);
                 io.emit('installError', { 
