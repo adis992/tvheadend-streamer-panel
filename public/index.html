@@ -1338,20 +1338,30 @@
             renderChannels();
         });
         
-        // Dodajemo event listener za GPU statistiku
+        // Socket listener za GPU statistiku - SAMO TIHO AŽURIRANJE
         socket.on('gpuStats', (stats) => {
-            console.log('GPU stats received:', stats);
+            // console.log('GPU stats received:', stats); // Remove noisy logging
             if (stats && Array.isArray(stats) && stats.length > 0) {
+                // Silently update GPU display - NO table refresh
                 updateGPUStatsDisplay(stats);
-                // Update first GPU in header stats
-                document.getElementById('gpu-usage').textContent = stats[0].usage ? `${stats[0].usage}%` : '--%';
-                document.getElementById('gpu-memory').textContent = stats[0].memory ? `${stats[0].memory}%` : '--%';
-                document.getElementById('gpu-temp').textContent = stats[0].temp ? `${stats[0].temp}°C` : '--°C';
+                
+                // Update header stats if they exist
+                const gpuUsageEl = document.getElementById('gpu-usage');
+                const gpuMemoryEl = document.getElementById('gpu-memory');  
+                const gpuTempEl = document.getElementById('gpu-temp');
+                
+                if (gpuUsageEl) gpuUsageEl.textContent = stats[0].usage ? `${stats[0].usage}%` : '--%';
+                if (gpuMemoryEl) gpuMemoryEl.textContent = stats[0].memory ? `${stats[0].memory}%` : '--%';
+                if (gpuTempEl) gpuTempEl.textContent = stats[0].temp ? `${stats[0].temp}°C` : '--°C';
             } else if (stats) {
-                // Single GPU format (backward compatibility)
-                document.getElementById('gpu-usage').textContent = stats.usage ? `${stats.usage}%` : '--%';
-                document.getElementById('gpu-memory').textContent = stats.memory ? `${stats.memory}%` : '--%';
-                document.getElementById('gpu-temp').textContent = stats.temp ? `${stats.temp}°C` : '--°C';
+                // Single GPU format (backward compatibility) - silent update
+                const gpuUsageEl = document.getElementById('gpu-usage');
+                const gpuMemoryEl = document.getElementById('gpu-memory');  
+                const gpuTempEl = document.getElementById('gpu-temp');
+                
+                if (gpuUsageEl) gpuUsageEl.textContent = stats.usage ? `${stats.usage}%` : '--%';
+                if (gpuMemoryEl) gpuMemoryEl.textContent = stats.memory ? `${stats.memory}%` : '--%';
+                if (gpuTempEl) gpuTempEl.textContent = stats.temp ? `${stats.temp}°C` : '--°C';
             }
         });
         
@@ -1594,7 +1604,7 @@
             }
         }
         
-        // Function to refresh GPU statistics
+        // Function to refresh GPU statistics - MANUAL ONLY, no table refresh
         async function refreshGPUStats() {
             try {
                 const response = await fetch('/api/gpu-stats');
@@ -1612,14 +1622,14 @@
             }
         }
         
-        // Enhanced GPU monitoring
+        // Enhanced GPU monitoring - BACKGROUND ONLY, no notifications
         async function updateGPUMonitoring() {
             try {
                 const response = await fetch('/api/gpu-stats');
                 const gpuStats = await response.json();
                 
                 if (gpuStats && Array.isArray(gpuStats) && gpuStats.length > 0) {
-                    // Update main GPU stats display
+                    // Silently update GPU stats display - no notifications
                     updateGPUStatsDisplay(gpuStats);
                     
                     // Update header cards if they exist
@@ -1644,26 +1654,28 @@
                         gpuLoadCardsHeader.innerHTML = headerCards;
                     }
                 } else {
-                    // No GPU stats available
+                    // Silently handle no GPU stats - no notifications for background updates
                     const gpuStatsContainer = document.getElementById('gpu-stats-container');
-                    if (gpuStatsContainer) {
+                    if (gpuStatsContainer && gpuStatsContainer.innerHTML.trim() === '') {
                         gpuStatsContainer.innerHTML = '<div class="col-12 text-center text-muted">GPU monitoring nedostupan</div>';
                     }
                     
                     const gpuLoadCardsHeader = document.getElementById('gpu-load-cards-header');
-                    if (gpuLoadCardsHeader) {
+                    if (gpuLoadCardsHeader && gpuLoadCardsHeader.innerHTML.trim() === '') {
                         gpuLoadCardsHeader.innerHTML = '<div class="col-auto"><small class="text-muted">GPU monitoring nedostupan</small></div>';
                     }
                 }
             } catch (error) {
-                console.error('Error updating GPU monitoring:', error);
+                // Silently log error - no notifications for background updates
+                console.error('Background GPU monitoring error:', error);
+                
                 const gpuStatsContainer = document.getElementById('gpu-stats-container');
-                if (gpuStatsContainer) {
+                if (gpuStatsContainer && gpuStatsContainer.innerHTML.trim() === '') {
                     gpuStatsContainer.innerHTML = '<div class="col-12 text-center text-muted">GPU monitoring greška</div>';
                 }
                 
                 const gpuLoadCardsHeader = document.getElementById('gpu-load-cards-header');
-                if (gpuLoadCardsHeader) {
+                if (gpuLoadCardsHeader && gpuLoadCardsHeader.innerHTML.trim() === '') {
                     gpuLoadCardsHeader.innerHTML = '<div class="col-auto"><small class="text-muted">GPU monitoring greška</small></div>';
                 }
             }
