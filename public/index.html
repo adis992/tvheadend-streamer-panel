@@ -12,10 +12,9 @@
             min-height: 100vh;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
-            display: flex;
         }
         
-        /* Sidebar */
+        /* Remove fixed sidebar for better responsive design */
         .sidebar {
             width: 250px;
             background: rgba(0, 0, 0, 0.3);
@@ -23,9 +22,14 @@
             backdrop-filter: blur(10px);
             color: white;
             padding: 20px 0;
-            position: fixed;
-            height: 100vh;
-            overflow-y: auto;
+            min-height: 100vh;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                min-height: auto;
+            }
         }
         
         .sidebar-brand {
@@ -69,11 +73,23 @@
             text-align: center;
         }
         
-        /* Main content */
+        /* Main content - responsive */
         .main-content {
-            margin-left: 250px;
             flex: 1;
-            padding: 20px;
+            padding: 15px;
+            width: 100%;
+            max-width: 100vw;
+            overflow-x: hidden;
+        }
+        
+        @media (min-width: 769px) {
+            body {
+                display: flex;
+            }
+            .main-content {
+                margin-left: 0;
+                padding: 20px;
+            }
         }
         
         .header {
@@ -829,6 +845,112 @@
             overflow-x: auto;
             border-radius: 12px;
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 100%;
+        }
+        
+        /* Make table more compact on smaller screens */
+        @media (max-width: 1200px) {
+            .table-responsive {
+                font-size: 0.875rem;
+            }
+            
+            .table td, .table th {
+                padding: 0.5rem 0.25rem;
+            }
+            
+            .btn-sm {
+                padding: 0.2rem 0.4rem;
+                font-size: 0.75rem;
+            }
+        }
+        
+        /* Fix table width issues */
+        #channels-table {
+            width: 100%;
+            min-width: 900px; /* Minimum width to prevent cramping */
+        }
+        
+        #channels-table th,
+        #channels-table td {
+            white-space: nowrap;
+            vertical-align: middle;
+            padding: 0.75rem 0.5rem;
+        }
+        
+        /* Make action buttons column narrower */
+        #channels-table .action-column {
+            width: 150px;
+            min-width: 150px;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 1400px) {
+            #channels-table {
+                min-width: 800px;
+            }
+            
+            #channels-table th,
+            #channels-table td {
+                padding: 0.5rem 0.25rem;
+                font-size: 0.875rem;
+            }
+        }
+        
+        @media (max-width: 1200px) {
+            .main-content {
+                padding: 10px;
+            }
+            
+            #channels-table {
+                min-width: 700px;
+            }
+            
+            .btn-sm {
+                padding: 0.2rem 0.4rem;
+                font-size: 0.75rem;
+            }
+            
+            .form-select-sm {
+                font-size: 0.75rem;
+                padding: 0.25rem 0.5rem;
+            }
+        }
+        
+        /* Zoom controls for better viewing at 75% */
+        .zoom-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .zoom-controls button {
+            margin: 0 2px;
+            font-size: 0.875rem;
+        }
+        
+        /* Optimal zoom level styles */
+        .zoom-75 {
+            zoom: 0.75;
+            -moz-transform: scale(0.75);
+            -moz-transform-origin: 0 0;
+        }
+        
+        .zoom-100 {
+            zoom: 1.0;
+            -moz-transform: scale(1.0);
+            -moz-transform-origin: 0 0;
+        }
+        
+        .zoom-120 {
+            zoom: 1.2;
+            -moz-transform: scale(1.2);
+            -moz-transform-origin: 0 0;
         }
         
         /* Enhanced GPU Info Cards */
@@ -987,7 +1109,14 @@
     </div>
 
     <!-- Main Content -->
-    <div class="main-content">
+    <div class="main-content zoom-75" id="main-content">
+        
+        <!-- Zoom Controls -->
+        <div class="zoom-controls">
+            <button class="btn btn-sm btn-outline-secondary" onclick="setZoom(75)">75%</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="setZoom(100)">100%</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="setZoom(120)">120%</button>
+        </div>
         <!-- Header -->
         <div class="header">
             <div class="d-flex justify-content-between align-items-center">
@@ -1128,7 +1257,7 @@
                                     <th><i class="fas fa-microchip"></i> GPU</th>
                                     <th><i class="fas fa-tachometer-alt"></i> Propusnost</th>
                                     <th><i class="fas fa-link"></i> Stream URL</th>
-                                    <th><i class="fas fa-cogs"></i> Kontrole</th>
+                                    <th class="action-column"><i class="fas fa-cogs"></i> Kontrole</th>
                                 </tr>
                             </thead>
                             <tbody id="channels-list">
@@ -2263,8 +2392,45 @@
         }
 
         // Initialize the application when document is loaded
+        // Zoom control function
+        function setZoom(percentage) {
+            const mainContent = document.getElementById('main-content');
+            if (mainContent) {
+                // Remove existing zoom classes
+                mainContent.classList.remove('zoom-75', 'zoom-100', 'zoom-120');
+                
+                // Add new zoom class
+                if (percentage === 75) {
+                    mainContent.classList.add('zoom-75');
+                } else if (percentage === 100) {
+                    mainContent.classList.add('zoom-100');
+                } else if (percentage === 120) {
+                    mainContent.classList.add('zoom-120');
+                }
+                
+                // Save zoom preference
+                localStorage.setItem('zoom-level', percentage);
+                
+                // Update button states
+                document.querySelectorAll('.zoom-controls button').forEach(btn => {
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('btn-outline-secondary');
+                });
+                
+                const activeBtn = document.querySelector(`.zoom-controls button[onclick="setZoom(${percentage})"]`);
+                if (activeBtn) {
+                    activeBtn.classList.remove('btn-outline-secondary');
+                    activeBtn.classList.add('btn-primary');
+                }
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             console.log('Initializing application...');
+            
+            // Initialize zoom level from localStorage or default to 75%
+            const savedZoom = localStorage.getItem('zoom-level') || '75';
+            setZoom(parseInt(savedZoom));
             
             // Setup search functionality
             const searchInput = document.getElementById('search-input');
