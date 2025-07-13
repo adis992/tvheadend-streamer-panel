@@ -1,3 +1,8 @@
 [
- 
+  {
+    "type": "hls",
+    "channelId": "1",
+    "profile": "passthrough",
+    "gpu": "amd"
+  }
 ]

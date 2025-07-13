@@ -880,8 +880,74 @@
         
         /* Make action buttons column narrower */
         #channels-table .action-column {
-            width: 150px;
-            min-width: 150px;
+            width: 120px;
+            min-width: 100px;
+        }
+        
+        /* Column width optimizations for better visibility */
+        #channels-table th:nth-child(1), #channels-table td:nth-child(1) { /* Kanal */
+            width: 200px;
+            min-width: 180px;
+        }
+        
+        #channels-table th:nth-child(2), #channels-table td:nth-child(2) { /* Grupa */
+            width: 120px;
+            min-width: 100px;
+        }
+        
+        #channels-table th:nth-child(3), #channels-table td:nth-child(3) { /* Status */
+            width: 110px;
+            min-width: 90px;
+        }
+        
+        #channels-table th:nth-child(4), #channels-table td:nth-child(4) { /* Profil */
+            width: 140px;
+            min-width: 120px;
+        }
+        
+        #channels-table th:nth-child(5), #channels-table td:nth-child(5) { /* GPU */
+            width: 120px;
+            min-width: 100px;
+        }
+        
+        #channels-table th:nth-child(6), #channels-table td:nth-child(6) { /* Propusnost */
+            width: 100px;
+            min-width: 80px;
+        }
+        
+        #channels-table th:nth-child(7), #channels-table td:nth-child(7) { /* Stream URL */
+            width: 250px;
+            min-width: 200px;
+        }
+        
+        #channels-table th:nth-child(8), #channels-table td:nth-child(8) { /* Kontrole */
+            width: 120px;
+            min-width: 100px;
+        }
+        
+        /* Better button spacing and size */
+        .btn-group-sm .btn {
+            padding: 0.2rem 0.4rem;
+            font-size: 0.75rem;
+        }
+        
+        /* Compact table styling */
+        #channels-table {
+            table-layout: fixed;
+            width: 100%;
+            min-width: 1060px; /* Total optimized width */
+        }
+        
+        /* Text overflow handling for long content */
+        #channels-table td {
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* Stream URL input sizing */
+        .form-control-sm {
+            font-size: 10px !important;
+            padding: 0.1rem 0.3rem !important;
         }
         
         /* Responsive adjustments */
