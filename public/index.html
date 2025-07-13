@@ -917,42 +917,6 @@
             }
         }
         
-        /* Zoom controls for better viewing at 75% */
-        .zoom-controls {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 8px;
-            padding: 10px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-        
-        .zoom-controls button {
-            margin: 0 2px;
-            font-size: 0.875rem;
-        }
-        
-        /* Optimal zoom level styles */
-        .zoom-75 {
-            zoom: 0.75;
-            -moz-transform: scale(0.75);
-            -moz-transform-origin: 0 0;
-        }
-        
-        .zoom-100 {
-            zoom: 1.0;
-            -moz-transform: scale(1.0);
-            -moz-transform-origin: 0 0;
-        }
-        
-        .zoom-120 {
-            zoom: 1.2;
-            -moz-transform: scale(1.2);
-            -moz-transform-origin: 0 0;
-        }
-        
         /* Enhanced GPU Info Cards */
         .gpu-info-card {
             background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
@@ -1109,14 +1073,7 @@
     </div>
 
     <!-- Main Content -->
-    <div class="main-content zoom-75" id="main-content">
-        
-        <!-- Zoom Controls -->
-        <div class="zoom-controls">
-            <button class="btn btn-sm btn-outline-secondary" onclick="setZoom(75)">75%</button>
-            <button class="btn btn-sm btn-outline-secondary" onclick="setZoom(100)">100%</button>
-            <button class="btn btn-sm btn-outline-secondary" onclick="setZoom(120)">120%</button>
-        </div>
+    <div class="main-content zoom-100" id="main-content">
         <!-- Header -->
         <div class="header">
             <div class="d-flex justify-content-between align-items-center">
@@ -1476,17 +1433,31 @@
         }
         
         async function fetchChannels() {
+            console.log('🔥 Fetching channels from API...');
             try {
                 const response = await fetch('/api/channels');
                 const data = await response.json();
-                channels = data;
-                console.log('Loaded channels:', channels.length);
+                console.log('🔥 API response:', response.status, data);
                 
-                // Always render channels after loading
-                renderChannels();
-                updateStats();
+                if (response.ok && data) {
+                    channels = Array.isArray(data) ? data : (data.channels || []);
+                    console.log('🔥 Loaded channels:', channels.length);
+                    
+                    // Debug first channel
+                    if (channels.length > 0) {
+                        console.log('🔥 First channel sample:', channels[0]);
+                    }
+                    
+                    // Always render channels after loading
+                    renderChannels();
+                    updateStats();
+                } else {
+                    console.error('🔥 Invalid API response:', data);
+                    showNotification('Greška učitavanja kanala', 'error');
+                }
             } catch (error) {
-                console.error('Error fetching channels:', error);
+                console.error('🔥 Error fetching channels:', error);
+                showNotification(`Greška API poziva: ${error.message}`, 'error');
             }
         }
         
@@ -1939,11 +1910,15 @@
 
         // Core function to render channels in the UI - TABLE FORMAT
         function renderChannels() {
+            console.log('🔥 renderChannels called, channels:', channels.length);
             const tableBody = document.getElementById('channels-list');
             if (!tableBody) {
-                console.error('Channel list element not found!');
+                console.error('🔥 Channel list element not found!');
                 return;
             }
+
+            // Debug channel data
+            console.log('🔥 First few channels:', channels.slice(0, 3));
 
             // Get search filter
             const searchQuery = searchInput ? searchInput.value.toLowerCase() : '';
@@ -1955,6 +1930,8 @@
                       (channel.group && channel.group.toLowerCase().includes(searchQuery));
             });
 
+            console.log('🔥 Filtered channels:', filteredChannels.length);
+
             // Generate table rows
             let tableRows = '';
             
@@ -1963,7 +1940,15 @@
                     <tr>
                         <td colspan="8" class="text-center py-5">
                             <i class="fas fa-search fa-3x text-muted"></i>
-                            <p class="mt-3">Nema pronađenih kanala</p>
+                            <p class="mt-3">Nema pronađenih kanala (ukupno: ${channels.length})</p>
+                            <div class="mt-3">
+                                <button class="btn btn-primary me-2" onclick="manualRefreshChannels()">
+                                    <i class="fas fa-sync-alt"></i> Osvježi kanale
+                                </button>
+                                <button class="btn btn-warning" onclick="forceReloadChannels()">
+                                    <i class="fas fa-redo"></i> Prisilno učitaj
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -2260,8 +2245,33 @@
 
         // Manual refresh function
         function manualRefreshChannels() {
+            console.log('🔥 Manual refresh triggered');
             showNotification('Osvežavam kanale...', 'info');
             fetchChannels();
+        }
+
+        // Function to force channel reload with better error handling
+        async function forceReloadChannels() {
+            console.log('🔥 Force reload channels triggered');
+            try {
+                // Clear existing channels
+                channels = [];
+                renderChannels();
+                
+                // Show loading
+                showNotification('Prisilno učitavam kanale...', 'info');
+                
+                // Try to reload config first
+                await fetchServerConfig();
+                
+                // Then reload channels
+                await fetchChannels();
+                
+                showNotification('Kanali uspješno učitani!', 'success');
+            } catch (error) {
+                console.error('🔥 Force reload error:', error);
+                showNotification(`Greška prisilnog učitavanja: ${error.message}`, 'error');
+            }
         }
 
         // Stop all streams
@@ -2392,45 +2402,8 @@
         }
 
         // Initialize the application when document is loaded
-        // Zoom control function
-        function setZoom(percentage) {
-            const mainContent = document.getElementById('main-content');
-            if (mainContent) {
-                // Remove existing zoom classes
-                mainContent.classList.remove('zoom-75', 'zoom-100', 'zoom-120');
-                
-                // Add new zoom class
-                if (percentage === 75) {
-                    mainContent.classList.add('zoom-75');
-                } else if (percentage === 100) {
-                    mainContent.classList.add('zoom-100');
-                } else if (percentage === 120) {
-                    mainContent.classList.add('zoom-120');
-                }
-                
-                // Save zoom preference
-                localStorage.setItem('zoom-level', percentage);
-                
-                // Update button states
-                document.querySelectorAll('.zoom-controls button').forEach(btn => {
-                    btn.classList.remove('btn-primary');
-                    btn.classList.add('btn-outline-secondary');
-                });
-                
-                const activeBtn = document.querySelector(`.zoom-controls button[onclick="setZoom(${percentage})"]`);
-                if (activeBtn) {
-                    activeBtn.classList.remove('btn-outline-secondary');
-                    activeBtn.classList.add('btn-primary');
-                }
-            }
-        }
-
         document.addEventListener('DOMContentLoaded', async () => {
             console.log('Initializing application...');
-            
-            // Initialize zoom level from localStorage or default to 75%
-            const savedZoom = localStorage.getItem('zoom-level') || '75';
-            setZoom(parseInt(savedZoom));
             
             // Setup search functionality
             const searchInput = document.getElementById('search-input');
