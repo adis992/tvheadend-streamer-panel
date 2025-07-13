@@ -852,16 +852,16 @@
         /* Make table more compact on smaller screens */
         @media (max-width: 1200px) {
             .table-responsive {
-                font-size: 0.875rem;
+                font-size: 0.8rem; /* Smanji font */
             }
             
             .table td, .table th {
-                padding: 0.5rem 0.25rem;
+                padding: 0.4rem 0.2rem;
             }
             
             .btn-sm {
-                padding: 0.2rem 0.4rem;
-                font-size: 0.75rem;
+                padding: 0.15rem 0.3rem;
+                font-size: 0.7rem;
             }
         }
         
@@ -880,74 +880,68 @@
         
         /* Make action buttons column narrower */
         #channels-table .action-column {
-            width: 120px;
+            width: auto;
             min-width: 100px;
         }
         
-        /* Column width optimizations for better visibility */
-        #channels-table th:nth-child(1), #channels-table td:nth-child(1) { /* Kanal */
-            width: 200px;
-            min-width: 180px;
-        }
-        
-        #channels-table th:nth-child(2), #channels-table td:nth-child(2) { /* Grupa */
-            width: 120px;
-            min-width: 100px;
-        }
-        
-        #channels-table th:nth-child(3), #channels-table td:nth-child(3) { /* Status */
-            width: 110px;
-            min-width: 90px;
-        }
-        
-        #channels-table th:nth-child(4), #channels-table td:nth-child(4) { /* Profil */
-            width: 140px;
-            min-width: 120px;
-        }
-        
-        #channels-table th:nth-child(5), #channels-table td:nth-child(5) { /* GPU */
-            width: 120px;
-            min-width: 100px;
-        }
-        
-        #channels-table th:nth-child(6), #channels-table td:nth-child(6) { /* Propusnost */
-            width: 100px;
-            min-width: 80px;
-        }
-        
-        #channels-table th:nth-child(7), #channels-table td:nth-child(7) { /* Stream URL */
-            width: 250px;
-            min-width: 200px;
-        }
-        
-        #channels-table th:nth-child(8), #channels-table td:nth-child(8) { /* Kontrole */
-            width: 120px;
-            min-width: 100px;
-        }
-        
-        /* Better button spacing and size */
+        /* Better button spacing and size - još kompaktnije */
         .btn-group-sm .btn {
-            padding: 0.2rem 0.4rem;
+            padding: 0.15rem 0.3rem;
+            font-size: 0.7rem;
+        }
+        
+        /* Ikone u dugmićima manji */
+        .btn-sm i {
             font-size: 0.75rem;
         }
         
-        /* Compact table styling */
+        /* Compact table styling - AUTO WIDTH & CENTER CONTENT */
         #channels-table {
-            table-layout: fixed;
+            table-layout: auto; /* Promenjeno sa fixed na auto */
             width: 100%;
-            min-width: 1060px; /* Total optimized width */
+            max-width: 100%;
         }
         
-        /* Text overflow handling for long content */
+        /* Auto-sizing columns based on content with text wrapping */
+        #channels-table th,
         #channels-table td {
-            overflow: hidden;
-            text-overflow: ellipsis;
+            width: auto; /* Uklanjanje fiksnih širina */
+            min-width: unset; /* Uklanjanje min-width ograničenja */
+            text-align: center; /* Centriranje sadržaja */
+            vertical-align: middle;
+            padding: 0.5rem 0.3rem;
+            word-wrap: break-word; /* Omogućava prelom reči */
+            word-break: break-word; /* Dodatno omogućava prelom dugih reči */
+            white-space: normal; /* Omogućava wrap teksta u novi red */
+            overflow-wrap: break-word; /* Moderna verzija word-wrap */
         }
         
-        /* Stream URL input sizing */
+        /* Specifične kolone - prva kolona može biti malo šira za imena kanala */
+        #channels-table th:nth-child(1), 
+        #channels-table td:nth-child(1) {
+            min-width: 120px; /* Minimalna širina za imena kanala */
+            max-width: 200px; /* Maksimalna širina */
+        }
+        
+        /* Stream URL kolona može biti malo šira */
+        #channels-table th:nth-child(7), 
+        #channels-table td:nth-child(7) {
+            min-width: 150px;
+            max-width: 250px;
+        }
+        
+        /* Form controls u tabeli - kompaktnije */
+        .form-select-sm {
+            font-size: 0.75rem !important;
+            padding: 0.15rem 0.25rem !important;
+            min-width: 80px;
+            max-width: 140px;
+        }
+        
+        /* Stream URL input sizing - još kompaktnije */
         .form-control-sm {
-            font-size: 10px !important;
-            padding: 0.1rem 0.3rem !important;
+            font-size: 8px !important;
+            padding: 0.1rem 0.2rem !important;
         }
         
         /* Responsive adjustments */
@@ -1273,14 +1267,14 @@
                         <table class="table table-striped table-hover" id="channels-table">
                             <thead class="table-dark">
                                 <tr>
-                                    <th><i class="fas fa-tv"></i> Kanal</th>
-                                    <th><i class="fas fa-layer-group"></i> Grupa</th>
-                                    <th><i class="fas fa-circle"></i> Status</th>
-                                    <th><i class="fas fa-sliders-h"></i> Profil</th>
-                                    <th><i class="fas fa-microchip"></i> GPU</th>
-                                    <th><i class="fas fa-tachometer-alt"></i> Propusnost</th>
-                                    <th><i class="fas fa-link"></i> Stream URL</th>
-                                    <th class="action-column"><i class="fas fa-cogs"></i> Kontrole</th>
+                                    <th class="text-center"><i class="fas fa-tv"></i> Kanal</th>
+                                    <th class="text-center"><i class="fas fa-layer-group"></i> Grupa</th>
+                                    <th class="text-center"><i class="fas fa-circle"></i> Status</th>
+                                    <th class="text-center"><i class="fas fa-sliders-h"></i> Profil</th>
+                                    <th class="text-center"><i class="fas fa-microchip"></i> GPU</th>
+                                    <th class="text-center"><i class="fas fa-tachometer-alt"></i> Propusnost</th>
+                                    <th class="text-center"><i class="fas fa-link"></i> Stream URL</th>
+                                    <th class="action-column text-center"><i class="fas fa-cogs"></i> Kontrole</th>
                                 </tr>
                             </thead>
                             <tbody id="channels-list">
@@ -1364,25 +1358,27 @@
         });
         
         socket.on('channelsUpdated', (channelsData) => {
-            // Only update if data actually changed
+            // Only update if data actually changed - NO AUTOMATIC TABLE REFRESH
             const channelsChanged = JSON.stringify(channels) !== JSON.stringify(channelsData);
             if (channelsChanged) {
-                console.log('Channels data changed, updating UI');
+                console.log('🔥 Channels data changed, updating internal data only (NO table refresh)');
                 
                 // Initialize default settings for new channels - ENSURE PASSTHROUGH IS DEFAULT
                 channelsData.forEach(channel => {
-                    // Always default to passthrough if no profile is set
-                    if (!channel.profile || channel.profile === '') {
+                    // Always default to passthrough if no profile is set or if undefined
+                    if (!channel.profile || channel.profile === '' || channel.profile === 'undefined') {
                         channel.profile = 'passthrough';
+                        console.log(`🔥 Set passthrough for channel ${channel.id}`);
                     }
-                    // Always default to auto if no GPU is set
-                    if (!channel.gpu || channel.gpu === '') {
+                    // Always default to auto if no GPU is set or if undefined
+                    if (!channel.gpu || channel.gpu === '' || channel.gpu === 'undefined') {
                         channel.gpu = 'auto';
+                        console.log(`🔥 Set auto GPU for channel ${channel.id}`);
                     }
                 });
                 
                 channels = channelsData;
-                renderChannels();
+                // DO NOT call renderChannels() here - let user control when to refresh
                 updateStats();
             }
         });
@@ -1452,7 +1448,7 @@
                 : `Transkodiranje u toku za kanal ${data.channelId} (${data.profile}, ${data.gpu})`;
             showNotification(statusMessage, 'success');
             
-            // Update local channel status immediately for responsive UI
+            // Update local channel status immediately for responsive UI - NO AUTO REFRESH
             const channel = channels.find(c => c.id === data.channelId);
             if (channel) {
                 channel.isActive = true;
@@ -1464,7 +1460,8 @@
                 
                 console.log(`🔥 Updated channel ${data.channelId}: active=${channel.isActive}, transcoding=${channel.transcoding}, passthrough=${channel.passthrough}, profile=${data.profile}`);
                 
-                renderChannels(); // Re-render immediately
+                // Manual refresh only - let user control table refresh
+                // renderChannels(); // DISABLED AUTOMATIC REFRESH
             } else {
                 console.error(`🔥 Channel not found for ID: ${data.channelId}`);
             }
@@ -1475,7 +1472,7 @@
             activeStreams.delete(data.channelId);
             showNotification(`Stream zaustavljen za kanal ${data.channelId}`, 'info');
             
-            // Update local channel status immediately
+            // Update local channel status immediately - NO AUTO REFRESH
             const channel = channels.find(c => c.id === data.channelId);
             if (channel) {
                 channel.isActive = false;
@@ -1483,7 +1480,8 @@
                 channel.passthrough = false;
                 channel.bandwidth = 0;
                 console.log(`Stopped channel ${data.channelId}: active=${channel.isActive}, transcoding=${channel.transcoding}, passthrough=${channel.passthrough}`);
-                renderChannels(); // Re-render immediately
+                // Manual refresh only - let user control table refresh
+                // renderChannels(); // DISABLED AUTOMATIC REFRESH
             }
             updateStats();
         });
@@ -1502,9 +1500,28 @@
                 const response = await fetch('/api/gpu-info');
                 const info = await response.json();
                 gpuInfo = info;
+                console.log('🔥 GPU Info loaded:', gpuInfo);
                 updateGPUStatus();
             } catch (error) {
                 console.error('Error fetching GPU info:', error);
+            }
+        }
+        
+        // New function to fetch available GPUs separately
+        async function fetchAvailableGPUs() {
+            try {
+                const response = await fetch('/api/available-gpus');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.gpus && Array.isArray(data.gpus)) {
+                        availableGPUs = data.gpus;
+                        console.log('🔥 Available GPUs loaded separately:', availableGPUs);
+                    }
+                } else {
+                    console.warn('🔥 No separate GPU endpoint, using fallback detection');
+                }
+            } catch (error) {
+                console.warn('🔥 GPU endpoint not available:', error.message);
             }
         }
         
@@ -1516,7 +1533,23 @@
                 console.log('🔥 API response:', response.status, data);
                 
                 if (response.ok && data) {
-                    channels = Array.isArray(data) ? data : (data.channels || []);
+                    let channelsArray = Array.isArray(data) ? data : (data.channels || []);
+                    
+                    // Initialize default settings for all channels - ENSURE PASSTHROUGH IS DEFAULT
+                    channelsArray.forEach(channel => {
+                        // Always default to passthrough if no profile is set or if undefined
+                        if (!channel.profile || channel.profile === '' || channel.profile === 'undefined') {
+                            channel.profile = 'passthrough';
+                            console.log(`🔥 Set passthrough for channel ${channel.id || channel.name}`);
+                        }
+                        // Always default to auto if no GPU is set or if undefined
+                        if (!channel.gpu || channel.gpu === '' || channel.gpu === 'undefined') {
+                            channel.gpu = 'auto';
+                            console.log(`🔥 Set auto GPU for channel ${channel.id || channel.name}`);
+                        }
+                    });
+                    
+                    channels = channelsArray;
                     console.log('🔥 Loaded channels:', channels.length);
                     
                     // Debug first channel
@@ -1538,24 +1571,62 @@
         }
         
         async function fetchProfiles() {
+            console.log('🔥 Fetching profiles and GPUs...');
             try {
                 const response = await fetch('/api/profiles');
                 const data = await response.json();
-                availableProfiles = data.profiles;
-                availableGPUs = data.availableGPUs;
-                console.log('Loaded profiles:', availableProfiles);
-                console.log('Available GPUs:', availableGPUs);
+                
+                console.log('🔥 Profiles API response:', data);
+                
+                // Enhanced profile loading with safety checks
+                if (data.profiles && typeof data.profiles === 'object') {
+                    availableProfiles = data.profiles;
+                    console.log('🔥 Loaded profiles:', Object.keys(availableProfiles));
+                } else {
+                    console.warn('🔥 No profiles in API response, using fallback');
+                    availableProfiles = {
+                        'h264_gpu': { name: 'H264 GPU', description: 'H264 Hardware Encoding' },
+                        'h264_cpu': { name: 'H264 CPU', description: 'H264 Software Encoding' },
+                        'hevc_gpu': { name: 'HEVC GPU', description: 'HEVC Hardware Encoding' },
+                        'hevc_cpu': { name: 'HEVC CPU', description: 'HEVC Software Encoding' },
+                        'low_gpu': { name: 'Low Quality GPU', description: 'Low bitrate GPU encoding' },
+                        'low_cpu': { name: 'Low Quality CPU', description: 'Low bitrate CPU encoding' }
+                    };
+                }
+                
+                // Enhanced GPU loading with safety checks  
+                if (data.availableGPUs && Array.isArray(data.availableGPUs)) {
+                    availableGPUs = data.availableGPUs;
+                    console.log('🔥 Loaded GPUs from API:', availableGPUs);
+                } else {
+                    console.warn('🔥 No GPUs in API response, fetching separately');
+                    // Try to fetch GPU info separately
+                    await fetchGPUInfo();
+                    await fetchAvailableGPUs();
+                }
                 
                 // Debug output for troubleshooting
-                console.log('Profile keys:', Object.keys(availableProfiles));
-                console.log('GPU structure:', availableGPUs);
+                console.log('🔥 Final profiles:', availableProfiles);
+                console.log('🔥 Final GPU structure:', availableGPUs);
+                console.log('🔥 GPU info:', gpuInfo);
                 
-                // Re-render channels now that profiles are loaded
+                // Re-render channels now that profiles and GPUs are loaded
                 if (channels && channels.length > 0) {
+                    console.log('🔥 Re-rendering channels with new profiles/GPUs');
                     renderChannels();
                 }
             } catch (error) {
-                console.error('Error fetching profiles:', error);
+                console.error('🔥 Error fetching profiles:', error);
+                // Set fallback profiles and GPUs on error
+                availableProfiles = {
+                    'h264_gpu': { name: 'H264 GPU' },
+                    'h264_cpu': { name: 'H264 CPU' },
+                    'hevc_gpu': { name: 'HEVC GPU' },
+                    'hevc_cpu': { name: 'HEVC CPU' }
+                };
+                availableGPUs = [];
+                
+                showNotification('Greška učitavanja profila, koriste se osnovni', 'warning');
             }
         }
         
@@ -1688,11 +1759,14 @@
             }
         }
         
-        // Enhanced GPU monitoring - BACKGROUND ONLY, no notifications
+        // Enhanced GPU monitoring - BACKGROUND ONLY, no notifications - ENHANCED FOR AMD
         async function updateGPUMonitoring() {
             try {
+                console.log('🔥 Updating GPU monitoring...');
                 const response = await fetch('/api/gpu-stats');
                 const gpuStats = await response.json();
+                
+                console.log('🔥 GPU Stats received:', gpuStats);
                 
                 if (gpuStats && Array.isArray(gpuStats) && gpuStats.length > 0) {
                     // Silently update GPU stats display - no notifications
@@ -1703,14 +1777,16 @@
                     if (gpuLoadCardsHeader) {
                         const headerCards = gpuStats.map((gpu, index) => {
                             const usageClass = gpu.usage > 80 ? 'text-danger' : gpu.usage > 50 ? 'text-warning' : 'text-success';
+                            const gpuName = gpu.name || gpu.deviceName || `GPU ${index + 1}`;
                             return `
                                 <div class="col-auto">
                                     <div class="card gpu-card">
                                         <div class="card-body text-center py-2">
-                                            <h6 class="card-title mb-1">${gpu.name || `GPU ${index + 1}`}</h6>
+                                            <h6 class="card-title mb-1">${gpuName}</h6>
                                             <div class="${usageClass}">
                                                 <i class="fas fa-microchip"></i> ${gpu.usage || 0}%
                                             </div>
+                                            <small class="text-muted">${gpu.temp || '--'}°C</small>
                                         </div>
                                     </div>
                                 </div>
@@ -1719,31 +1795,40 @@
                         
                         gpuLoadCardsHeader.innerHTML = headerCards;
                     }
+                    
+                    showNotification('GPU statistike učitane uspešno!', 'success');
                 } else {
-                    // Silently handle no GPU stats - no notifications for background updates
+                    // Try to force refresh GPU info if no stats available
+                    console.warn('🔥 No GPU stats available, trying to refresh GPU info');
+                    await refreshGPUInfo();
+                    
+                    // Set fallback message
                     const gpuStatsContainer = document.getElementById('gpu-stats-container');
-                    if (gpuStatsContainer && gpuStatsContainer.innerHTML.trim() === '') {
-                        gpuStatsContainer.innerHTML = '<div class="col-12 text-center text-muted">GPU monitoring nedostupan</div>';
+                    if (gpuStatsContainer) {
+                        gpuStatsContainer.innerHTML = '<div class="col-12 text-center text-muted">Pokušavam učitati GPU monitoring...</div>';
                     }
                     
                     const gpuLoadCardsHeader = document.getElementById('gpu-load-cards-header');
-                    if (gpuLoadCardsHeader && gpuLoadCardsHeader.innerHTML.trim() === '') {
-                        gpuLoadCardsHeader.innerHTML = '<div class="col-auto"><small class="text-muted">GPU monitoring nedostupan</small></div>';
+                    if (gpuLoadCardsHeader) {
+                        gpuLoadCardsHeader.innerHTML = '<div class="col-auto"><small class="text-muted">Učitavam GPU info...</small></div>';
                     }
+                    
+                    showNotification('Pokušavam ponovo učitati GPU statistike...', 'warning');
                 }
             } catch (error) {
-                // Silently log error - no notifications for background updates
-                console.error('Background GPU monitoring error:', error);
+                console.error('🔥 GPU monitoring error:', error);
                 
                 const gpuStatsContainer = document.getElementById('gpu-stats-container');
-                if (gpuStatsContainer && gpuStatsContainer.innerHTML.trim() === '') {
+                if (gpuStatsContainer) {
                     gpuStatsContainer.innerHTML = '<div class="col-12 text-center text-muted">GPU monitoring greška</div>';
                 }
                 
                 const gpuLoadCardsHeader = document.getElementById('gpu-load-cards-header');
-                if (gpuLoadCardsHeader && gpuLoadCardsHeader.innerHTML.trim() === '') {
+                if (gpuLoadCardsHeader) {
                     gpuLoadCardsHeader.innerHTML = '<div class="col-auto"><small class="text-muted">GPU monitoring greška</small></div>';
                 }
+                
+                showNotification(`Greška GPU monitoring: ${error.message}`, 'error');
             }
         }
         
@@ -1799,7 +1884,8 @@
                         : `Transkodiranje pokrenuto za kanal ${channelId} (${profile}, ${gpu})`;
                     showNotification(statusMessage, 'success');
                     
-                    renderChannels();
+                    // Manual refresh after successful start
+                    setTimeout(() => renderChannels(), 500);
                 } else {
                     throw new Error(result.error);
                 }
@@ -1810,17 +1896,33 @@
         }
         
         async function stopStream(channelId) {
+            console.log(`🔥 Stopping stream for channel ${channelId}`);
             try {
                 const response = await fetch(`/api/stop-stream/${channelId}`, { method: 'POST' });
                 const result = await response.json();
                 
+                console.log(`🔥 Stop API response:`, result);
+                
                 if (response.ok) {
                     showNotification(`Stream zaustavljen za kanal ${channelId}`, 'info');
-                    renderChannels();
+                    
+                    // Update local channel status immediately
+                    const channel = channels.find(c => c.id === channelId);
+                    if (channel) {
+                        channel.isActive = false;
+                        channel.transcoding = false;
+                        channel.passthrough = false;
+                        channel.bandwidth = 0;
+                        console.log(`🔥 Updated channel ${channelId}: active=${channel.isActive}`);
+                    }
+                    
+                    // Manual refresh after successful stop
+                    setTimeout(() => renderChannels(), 500);
                 } else {
-                    throw new Error(result.error);
+                    throw new Error(result.error || 'Unknown error');
                 }
             } catch (error) {
+                console.error(`🔥 Error stopping stream:`, error);
                 showNotification(`Greška zaustavljanja: ${error.message}`, 'error');
             }
         }
@@ -1843,7 +1945,7 @@
                 
                 if (response.ok) {
                     showNotification(`UDP stream pokrenut za kanal ${channelId}`, 'success');
-                    renderChannels();
+                    setTimeout(() => renderChannels(), 500);
                 } else {
                     throw new Error(result.error);
                 }
@@ -1859,7 +1961,7 @@
                 
                 if (response.ok) {
                     showNotification(`UDP stream zaustavljen za kanal ${channelId}`, 'success');
-                    renderChannels();
+                    setTimeout(() => renderChannels(), 500);
                 } else {
                     throw new Error(result.error);
                 }
@@ -2064,50 +2166,93 @@
                         }
                     }
                     
-                    // Generate profile options with default passthrough
+                    // Generate profile options with default passthrough - ENHANCED
                     let profileOptions = `<option value="passthrough" ${!channel.profile || channel.profile === 'passthrough' ? 'selected' : ''}>🔄 Passthrough</option>`;
                     
-                    if (availableProfiles) {
+                    // Add available profiles with safety checks
+                    if (availableProfiles && typeof availableProfiles === 'object') {
                         Object.keys(availableProfiles).forEach(profileKey => {
+                            const profile = availableProfiles[profileKey];
                             const selected = profileKey === channel.profile ? 'selected' : '';
                             const icon = profileKey.includes('hevc') ? '🎬' : profileKey.includes('h264') ? '📹' : '⚙️';
-                            profileOptions += `<option value="${profileKey}" ${selected}>${icon} ${availableProfiles[profileKey].name}</option>`;
+                            
+                            // Handle both object and string profiles
+                            const profileName = profile && typeof profile === 'object' ? 
+                                (profile.name || profile.description || profileKey) : 
+                                (profile || profileKey);
+                                
+                            profileOptions += `<option value="${profileKey}" ${selected}>${icon} ${profileName}</option>`;
+                        });
+                    } else {
+                        // Fallback profiles if API didn't load
+                        const fallbackProfiles = {
+                            'h264_gpu': '📹 H264 GPU',
+                            'h264_cpu': '📹 H264 CPU', 
+                            'hevc_gpu': '🎬 HEVC GPU',
+                            'hevc_cpu': '🎬 HEVC CPU',
+                            'low_gpu': '⚙️ Low Quality GPU',
+                            'low_cpu': '⚙️ Low Quality CPU'
+                        };
+                        
+                        Object.keys(fallbackProfiles).forEach(profileKey => {
+                            const selected = profileKey === channel.profile ? 'selected' : '';
+                            profileOptions += `<option value="${profileKey}" ${selected}>${fallbackProfiles[profileKey]}</option>`;
                         });
                     }
                     
-                    // Generate GPU options with individual selection and emojis
+                    // Generate GPU options with enhanced detection and emojis
                     let gpuOptions = `<option value="auto" ${!channel.gpu || channel.gpu === 'auto' ? 'selected' : ''}>🤖 Auto</option>`;
                     
-                    // Add available GPUs individually - better GPU support
+                    // Add available GPUs from API first (most accurate)
                     if (availableGPUs && availableGPUs.length > 0) {
                         availableGPUs.forEach((gpu, index) => {
-                            const gpuId = gpu.id || `gpu-${index}`;
-                            const gpuName = gpu.name || `GPU ${index + 1}`;
+                            const gpuId = gpu.id || gpu.deviceId || `gpu-${index}`;
+                            const gpuName = gpu.name || gpu.deviceName || `GPU ${index + 1}`;
                             const selected = channel.gpu === gpuId ? 'selected' : '';
-                            const icon = gpuName.toLowerCase().includes('nvidia') ? '🟢' : gpuName.toLowerCase().includes('amd') ? '🔴' : '🔵';
+                            
+                            // Enhanced icon detection
+                            let icon = '🔵'; // Default blue
+                            if (gpuName.toLowerCase().includes('nvidia') || gpuName.toLowerCase().includes('geforce') || gpuName.toLowerCase().includes('rtx') || gpuName.toLowerCase().includes('gtx')) {
+                                icon = '🟢'; // NVIDIA green
+                            } else if (gpuName.toLowerCase().includes('amd') || gpuName.toLowerCase().includes('radeon') || gpuName.toLowerCase().includes('rx')) {
+                                icon = '🔴'; // AMD red
+                            } else if (gpuName.toLowerCase().includes('intel') || gpuName.toLowerCase().includes('iris') || gpuName.toLowerCase().includes('uhd')) {
+                                icon = '🔵'; // Intel blue
+                            }
+                            
                             gpuOptions += `<option value="${gpuId}" ${selected}>${icon} ${gpuName}</option>`;
                         });
                     } else {
-                        // Enhanced fallback for individual GPU cards
+                        // Enhanced fallback with more GPU options based on detected info
                         if (gpuInfo.nvidia) {
-                            // Support for multiple NVIDIA cards
-                            for (let i = 0; i < 3; i++) {
+                            // Support for multiple NVIDIA cards with better naming
+                            for (let i = 0; i < 4; i++) {
                                 const gpuId = `nvidia-${i}`;
                                 const selected = channel.gpu === gpuId ? 'selected' : '';
-                                gpuOptions += `<option value="${gpuId}" ${selected}>🟢 NVIDIA GPU ${i}</option>`;
+                                const cardName = i === 0 ? 'NVIDIA GPU (Primary)' : `NVIDIA GPU ${i}`;
+                                gpuOptions += `<option value="${gpuId}" ${selected}>🟢 ${cardName}</option>`;
                             }
                         }
                         
                         if (gpuInfo.amd) {
-                            // Support for multiple AMD cards
-                            for (let i = 0; i < 3; i++) {
+                            // Support for multiple AMD cards with better naming
+                            for (let i = 0; i < 4; i++) {
                                 const gpuId = `amd-${i}`;
                                 const selected = channel.gpu === gpuId ? 'selected' : '';
-                                gpuOptions += `<option value="${gpuId}" ${selected}>🔴 AMD GPU ${i}</option>`;
+                                const cardName = i === 0 ? 'AMD GPU (Primary)' : `AMD GPU ${i}`;
+                                gpuOptions += `<option value="${gpuId}" ${selected}>🔴 ${cardName}</option>`;
                             }
+                        }
+                        
+                        // Add Intel GPU detection
+                        if (gpuInfo.intel) {
+                            const gpuId = 'intel-0';
+                            const selected = channel.gpu === gpuId ? 'selected' : '';
+                            gpuOptions += `<option value="${gpuId}" ${selected}>🔵 Intel GPU</option>`;
                         }
                     }
                     
+                    // Always add CPU option
                     gpuOptions += `<option value="cpu" ${channel.gpu === 'cpu' ? 'selected' : ''}>💻 CPU</option>`;
                     
                     // Generate the stream URL for active streams
@@ -2321,11 +2466,18 @@
             }
         }
 
-        // Manual refresh function
+        // Manual refresh function - Enhanced for user control
         function manualRefreshChannels() {
             console.log('🔥 Manual refresh triggered');
-            showNotification('Osvežavam kanale...', 'info');
-            fetchChannels();
+            showNotification('Osvežavam tabelu...', 'info');
+            renderChannels(); // Just refresh the table, don't reload from server
+        }
+        
+        // Full reload function 
+        function fullReloadChannels() {
+            console.log('🔥 Full reload triggered');
+            showNotification('Ponovno učitavam kanale...', 'info');
+            fetchChannels(); // Reload from server and refresh table
         }
 
         // Function to force channel reload with better error handling
@@ -2397,10 +2549,14 @@
             }
         }
 
-        // Function to update GPU stats display above table
+        // Function to update GPU stats display above table - ENHANCED FOR AMD
         function updateGPUStatsDisplay(gpuStats) {
+            console.log('🔥 Updating GPU stats display with:', gpuStats);
             const gpuStatsContainer = document.getElementById('gpu-stats-container');
-            if (!gpuStatsContainer || !gpuStats || !Array.isArray(gpuStats)) return;
+            if (!gpuStatsContainer || !gpuStats || !Array.isArray(gpuStats)) {
+                console.warn('🔥 No GPU stats container or invalid data');
+                return;
+            }
             
             let gpuCardsHtml = '';
             
@@ -2409,12 +2565,21 @@
                 const tempClass = gpu.temp > 80 ? 'text-danger' : gpu.temp > 70 ? 'text-warning' : 'text-success';
                 const memClass = gpu.memory > 80 ? 'text-danger' : gpu.memory > 60 ? 'text-warning' : 'text-success';
                 
+                // Enhanced GPU name detection for AMD
+                const gpuName = gpu.name || gpu.deviceName || gpu.model || `GPU ${index + 1}`;
+                let gpuIcon = '🔵';
+                if (gpuName.toLowerCase().includes('amd') || gpuName.toLowerCase().includes('radeon') || gpuName.toLowerCase().includes('rx')) {
+                    gpuIcon = '🔴';
+                } else if (gpuName.toLowerCase().includes('nvidia') || gpuName.toLowerCase().includes('geforce') || gpuName.toLowerCase().includes('rtx')) {
+                    gpuIcon = '🟢';
+                }
+                
                 gpuCardsHtml += `
                     <div class="col-md-4 mb-3">
                         <div class="card gpu-info-card">
                             <div class="card-body text-center py-2">
                                 <h6 class="card-title mb-2">
-                                    <i class="fas fa-microchip"></i> ${gpu.name || `GPU ${index}`}
+                                    ${gpuIcon} ${gpuName}
                                 </h6>
                                 <div class="row text-center">
                                     <div class="col-4">
@@ -2427,22 +2592,29 @@
                                     <div class="col-4">
                                         <div class="${tempClass}">
                                             <i class="fas fa-thermometer-half"></i><br>
-                                            <strong>${gpu.temp || 0}°C</strong><br>
+                                            <strong>${gpu.temp || gpu.temperature || 0}°C</strong><br>
                                             <small>Temperatura</small>
                                         </div>
                                     </div>
                                     <div class="col-4">
                                         <div class="${memClass}">
                                             <i class="fas fa-memory"></i><br>
-                                            <strong>${gpu.memory || 0}%</strong><br>
+                                            <strong>${gpu.memory || gpu.memoryUsage || 0}%</strong><br>
                                             <small>Memorija</small>
                                         </div>
                                     </div>
                                 </div>
-                                ${gpu.fanSpeed ? `
+                                ${gpu.fanSpeed || gpu.fan ? `
                                 <div class="mt-2">
                                     <small class="text-muted">
-                                        <i class="fas fa-fan"></i> Fan: ${gpu.fanSpeed}%
+                                        <i class="fas fa-fan"></i> Fan: ${gpu.fanSpeed || gpu.fan}%
+                                    </small>
+                                </div>
+                                ` : ''}
+                                ${gpu.power ? `
+                                <div class="mt-1">
+                                    <small class="text-muted">
+                                        <i class="fas fa-bolt"></i> Power: ${gpu.power}W
                                     </small>
                                 </div>
                                 ` : ''}
@@ -2452,7 +2624,13 @@
                 `;
             });
             
-            gpuStatsContainer.innerHTML = gpuCardsHtml;
+            if (gpuCardsHtml) {
+                gpuStatsContainer.innerHTML = gpuCardsHtml;
+                console.log('🔥 GPU stats display updated successfully');
+            } else {
+                gpuStatsContainer.innerHTML = '<div class="col-12 text-center text-muted">Nema dostupnih GPU podataka</div>';
+                console.warn('🔥 No GPU cards generated');
+            }
         }
         
         async function fetchServerConfig() {
@@ -2516,18 +2694,44 @@
                 });
             }
             
+            // Setup refresh GPU button
+            const refreshGpuBtn = document.getElementById('refresh-gpu-btn');
+            if (refreshGpuBtn) {
+                refreshGpuBtn.addEventListener('click', async function() {
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Učitavam...';
+                    this.disabled = true;
+                    try {
+                        await updateGPUMonitoring();
+                    } catch (error) {
+                        console.error('Error refreshing GPU:', error);
+                    }
+                    this.innerHTML = '<i class="fas fa-sync-alt"></i>';
+                    this.disabled = false;
+                });
+            }
+            
             // Load server config first (contains port info)
             await fetchServerConfig();
             
-            // Initial GPU stats load
+            // Initial GPU stats load - try multiple times for AMD GPUs
+            console.log('🔥 Starting initial GPU monitoring...');
             await updateGPUMonitoring();
             
-            // Periodic updates
+            // Try again after 2 seconds if first attempt failed
+            setTimeout(async () => {
+                const gpuContainer = document.getElementById('gpu-stats-container');
+                if (gpuContainer && gpuContainer.innerHTML.includes('nedostupan')) {
+                    console.log('🔥 Retrying GPU monitoring...');
+                    await updateGPUMonitoring();
+                }
+            }, 2000);
+            
+            // Periodic updates - every 15 seconds for GPU stats
             setInterval(async () => {
                 if (autoRefreshEnabled) {
                     await updateGPUMonitoring();
                 }
-            }, 10000); // Every 10 seconds for GPU stats
+            }, 15000);
         });
     </script>
     </div> <!-- End main-content -->
