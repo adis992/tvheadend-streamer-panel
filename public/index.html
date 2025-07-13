@@ -719,118 +719,198 @@
             background: #ffc107;
         }
         
-        /* Table styling for double width and better appearance */
+        /* Enhanced Table styling for double width */
         #channels-table {
             width: 200% !important;
-            min-width: 1200px;
-            border-radius: 8px;
+            min-width: 1400px;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        
-        #channels-table thead th {
-            background: linear-gradient(135deg, #343a40, #495057);
-            color: white;
-            font-weight: 600;
-            font-size: 13px;
-            padding: 12px 8px;
-            vertical-align: middle;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
             border: none;
-            text-align: center;
         }
         
-        #channels-table th:nth-child(1) { width: 20%; }
+        #channels-table th:nth-child(1) { width: 18%; }
         #channels-table th:nth-child(2) { width: 12%; }
         #channels-table th:nth-child(3) { width: 10%; }
-        #channels-table th:nth-child(4) { width: 12%; }
-        #channels-table th:nth-child(5) { width: 12%; }
+        #channels-table th:nth-child(4) { width: 14%; }
+        #channels-table th:nth-child(5) { width: 10%; }
         #channels-table th:nth-child(6) { width: 10%; }
         #channels-table th:nth-child(7) { width: 20%; }
-        #channels-table th:nth-child(8) { width: 14%; }
+        #channels-table th:nth-child(8) { width: 12%; }
+        
+        #channels-table th {
+            font-size: 13px;
+            padding: 12px 10px;
+            vertical-align: middle;
+            background: linear-gradient(135deg, #343a40 0%, #495057 100%) !important;
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: none;
+        }
         
         #channels-table td {
             font-size: 12px;
-            padding: 10px 8px;
+            padding: 10px;
             vertical-align: middle;
-            border-bottom: 1px solid #dee2e6;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+        
+        #channels-table tbody tr {
+            background: white;
+            transition: all 0.3s ease;
+        }
+        
+        #channels-table tbody tr:hover {
+            background: rgba(0, 123, 255, 0.05);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        #channels-table .table-success {
+            background: linear-gradient(135deg, #d1f2eb 0%, #a7f3d0 100%) !important;
+            border-left: 4px solid #10b981;
+        }
+        
+        #channels-table .table-warning {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%) !important;
+            border-left: 4px solid #f59e0b;
         }
         
         #channels-table .form-select {
             font-size: 11px;
             padding: 4px 8px;
-            border-radius: 4px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        
+        #channels-table .form-select:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
         
         #channels-table .btn {
-            font-size: 10px;
+            font-size: 11px;
             padding: 4px 8px;
-            border-radius: 4px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        #channels-table .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        #channels-table .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border: none;
+        }
+        
+        #channels-table .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            border: none;
+        }
+        
+        #channels-table .btn-outline-primary {
+            border-color: #3b82f6;
+            color: #3b82f6;
+        }
+        
+        #channels-table .btn-outline-primary:hover {
+            background: #3b82f6;
+            border-color: #3b82f6;
         }
         
         .table-responsive {
             overflow-x: auto;
-            border-radius: 8px;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
         }
         
-        /* GPU Stats Cards Styling */
+        /* Enhanced GPU Info Cards */
         .gpu-info-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
             border: none;
             border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            transition: transform 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            overflow: hidden;
         }
         
         .gpu-info-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
         }
         
         .gpu-info-card .card-body {
-            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-            border-radius: 12px;
+            padding: 20px;
         }
         
-        /* Status indicators */
-        .status-indicator {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 4px 8px;
-            border-radius: 20px;
-            font-size: 11px;
+        .gpu-info-card .card-title {
+            color: #1f2937;
             font-weight: 600;
+            margin-bottom: 15px;
+            font-size: 14px;
         }
         
-        .status-active {
-            background: #d1f2eb;
-            color: #27ae60;
+        .gpu-info-card .card-title i {
+            color: #3b82f6;
+            margin-right: 8px;
         }
         
-        .status-transcoding {
-            background: #fef9e7;
-            color: #f39c12;
-        }
-        
-        .status-passthrough {
-            background: #ebf3fd;
-            color: #3498db;
-        }
-        
-        .status-inactive {
-            background: #f8f9fa;
-            color: #95a5a6;
-        }
-        
-        /* Better stat boxes */
+        /* Stat boxes enhancement */
         .stat-box {
-            background: linear-gradient(135deg, #ffffff, #f8f9fa) !important;
-            border: 1px solid #e3e6f0;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            border-radius: 12px !important;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08) !important;
             transition: all 0.3s ease;
+            padding: 20px !important;
         }
         
         .stat-box:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+        }
+        
+        .stat-box .fw-bold {
+            color: #6b7280;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        /* Header enhancement */
+        .header {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(99, 102, 241, 0.9) 100%);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .gpu-badge {
+            background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .gpu-available {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        }
+        
+        .gpu-unavailable {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+        }
+        
+        /* Channels container enhancement */
+        .channels-container-full-width {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            backdrop-filter: blur(10px);
         }
         
         /* GPU Info Cards */
@@ -1031,19 +1111,19 @@
                         </div>
                     </div>
                     
-                    <!-- Normal Table Structure -->
+                    <!-- Enhanced Table Structure -->
                     <div class="table-responsive">
                         <table class="table table-striped table-hover" id="channels-table">
                             <thead class="table-dark">
                                 <tr>
-                                    <th>Kanal</th>
-                                    <th>Grupa</th>
-                                    <th>Status</th>
-                                    <th>Profil</th>
-                                    <th>GPU</th>
-                                    <th>Propusnost</th>
-                                    <th>Stream URL</th>
-                                    <th>Kontrole</th>
+                                    <th><i class="fas fa-tv"></i> Kanal</th>
+                                    <th><i class="fas fa-layer-group"></i> Grupa</th>
+                                    <th><i class="fas fa-circle"></i> Status</th>
+                                    <th><i class="fas fa-sliders-h"></i> Profil</th>
+                                    <th><i class="fas fa-microchip"></i> GPU</th>
+                                    <th><i class="fas fa-tachometer-alt"></i> Propusnost</th>
+                                    <th><i class="fas fa-link"></i> Stream URL</th>
+                                    <th><i class="fas fa-cogs"></i> Kontrole</th>
                                 </tr>
                             </thead>
                             <tbody id="channels-list">
@@ -1763,80 +1843,72 @@
                     const bandwidth = calculateBandwidth(channel, profile);
                     const formattedBandwidth = formatBandwidth(bandwidth);
                     
-                    // Determine status text and class with better styling
+                    // Determine status text and class with icons
                     let statusText = 'Neaktivan';
-                    let statusClass = 'status-inactive';
+                    let statusClass = 'text-muted';
+                    let statusIcon = 'fas fa-pause-circle';
                     
                     if (isActive) {
                         if (isTranscoding) {
                             statusText = 'Transkodiranje';
-                            statusClass = 'status-transcoding';
+                            statusClass = 'text-warning';
+                            statusIcon = 'fas fa-cogs fa-spin';
                         } else if (isPassthrough) {
                             statusText = 'Passthrough';
-                            statusClass = 'status-passthrough';
+                            statusClass = 'text-info';
+                            statusIcon = 'fas fa-arrow-right';
                         } else {
                             statusText = 'Aktivan';
-                            statusClass = 'status-active';
+                            statusClass = 'text-success';
+                            statusIcon = 'fas fa-play-circle';
                         }
                     }
                     
-                    // Generate profile options with passthrough as default
-                    let profileOptions = `<option value="passthrough" ${!channel.profile || channel.profile === 'passthrough' ? 'selected' : ''}>🔄 Passthrough (Copy)</option>`;
+                    // Generate profile options with default passthrough
+                    let profileOptions = `<option value="passthrough" ${!channel.profile || channel.profile === 'passthrough' ? 'selected' : ''}>🔄 Passthrough</option>`;
                     
                     if (availableProfiles) {
                         Object.keys(availableProfiles).forEach(profileKey => {
                             const selected = profileKey === channel.profile ? 'selected' : '';
-                            const profileName = availableProfiles[profileKey].name;
-                            // Add icons for different profile types
-                            let icon = '🎬';
-                            if (profileKey.includes('hevc')) icon = '📹';
-                            if (profileKey.includes('h264')) icon = '🎥';
-                            if (profileKey.includes('low')) icon = '📱';
-                            
-                            profileOptions += `<option value="${profileKey}" ${selected}>${icon} ${profileName}</option>`;
+                            const icon = profileKey.includes('hevc') ? '🎬' : profileKey.includes('h264') ? '📹' : '⚙️';
+                            profileOptions += `<option value="${profileKey}" ${selected}>${icon} ${availableProfiles[profileKey].name}</option>`;
                         });
                     }
                     
-                    // Generate GPU options with better names and individual selection
-                    let gpuOptions = `<option value="auto" ${!channel.gpu || channel.gpu === 'auto' ? 'selected' : ''}>🤖 Auto (Best Available)</option>`;
+                    // Generate GPU options with individual selection and emojis
+                    let gpuOptions = `<option value="auto" ${!channel.gpu || channel.gpu === 'auto' ? 'selected' : ''}>🤖 Auto</option>`;
                     
-                    // Add available GPUs individually - enhanced GPU support
+                    // Add available GPUs individually - better GPU support
                     if (availableGPUs && availableGPUs.length > 0) {
                         availableGPUs.forEach((gpu, index) => {
                             const gpuId = gpu.id || `gpu-${index}`;
                             const gpuName = gpu.name || `GPU ${index + 1}`;
                             const selected = channel.gpu === gpuId ? 'selected' : '';
-                            
-                            // Add GPU type icons
-                            let icon = '🎮';
-                            if (gpuName.toLowerCase().includes('nvidia')) icon = '🟢';
-                            if (gpuName.toLowerCase().includes('amd') || gpuName.toLowerCase().includes('radeon')) icon = '🔴';
-                            if (gpuName.toLowerCase().includes('intel')) icon = '🔵';
-                            
+                            const icon = gpuName.toLowerCase().includes('nvidia') ? '🟢' : gpuName.toLowerCase().includes('amd') ? '🔴' : '🔵';
                             gpuOptions += `<option value="${gpuId}" ${selected}>${icon} ${gpuName}</option>`;
                         });
                     } else {
-                        // Enhanced fallback for individual GPU cards with better naming
+                        // Enhanced fallback for individual GPU cards
                         if (gpuInfo.nvidia) {
                             // Support for multiple NVIDIA cards
                             for (let i = 0; i < 3; i++) {
                                 const gpuId = `nvidia-${i}`;
                                 const selected = channel.gpu === gpuId ? 'selected' : '';
-                                gpuOptions += `<option value="${gpuId}" ${selected}>🟢 NVIDIA GPU ${i} (RTX/GTX)</option>`;
+                                gpuOptions += `<option value="${gpuId}" ${selected}>🟢 NVIDIA GPU ${i}</option>`;
                             }
                         }
                         
                         if (gpuInfo.amd) {
-                            // Support for multiple AMD cards  
+                            // Support for multiple AMD cards
                             for (let i = 0; i < 3; i++) {
                                 const gpuId = `amd-${i}`;
                                 const selected = channel.gpu === gpuId ? 'selected' : '';
-                                gpuOptions += `<option value="${gpuId}" ${selected}>🔴 AMD GPU ${i} (RX/Radeon)</option>`;
+                                gpuOptions += `<option value="${gpuId}" ${selected}>🔴 AMD GPU ${i}</option>`;
                             }
                         }
                     }
                     
-                    gpuOptions += `<option value="cpu" ${channel.gpu === 'cpu' ? 'selected' : ''}>💻 CPU (Software Encoding)</option>`;
+                    gpuOptions += `<option value="cpu" ${channel.gpu === 'cpu' ? 'selected' : ''}>💻 CPU</option>`;
                     
                     // Generate the stream URL for active streams
                     let streamUrl = '';
@@ -1867,9 +1939,20 @@
                     
                     tableRows += `
                         <tr class="${rowClass}">
-                            <td><strong>${channel.name}</strong></td>
-                            <td>${channel.group || '-'}</td>
-                            <td><span class="status-indicator ${statusClass}"><i class="fas fa-circle"></i> ${statusText}</span></td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-tv text-primary me-2"></i>
+                                    <strong>${channel.name}</strong>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">${channel.group || 'Bez grupe'}</span>
+                            </td>
+                            <td>
+                                <span class="${statusClass}">
+                                    <i class="${statusIcon}"></i> ${statusText}
+                                </span>
+                            </td>
                             <td>
                                 <select class="form-select form-select-sm" 
                                         id="profile-${channel.id}" 
@@ -1886,7 +1969,11 @@
                                     ${gpuOptions}
                                 </select>
                             </td>
-                            <td>${isActive ? formattedBandwidth : '-'}</td>
+                            <td>
+                                <span class="badge ${isActive ? 'bg-success' : 'bg-light text-muted'}">
+                                    <i class="fas fa-tachometer-alt"></i> ${isActive ? formattedBandwidth : '---'}
+                                </span>
+                            </td>
                             <td>${streamUrlDisplay}</td>
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
@@ -2030,7 +2117,7 @@
             }
         }
 
-        // Function to update GPU stats display above table with enhanced appearance
+        // Function to update GPU stats display above table
         function updateGPUStatsDisplay(gpuStats) {
             const gpuStatsContainer = document.getElementById('gpu-stats-container');
             if (!gpuStatsContainer || !gpuStats || !Array.isArray(gpuStats)) return;
@@ -2042,63 +2129,41 @@
                 const tempClass = gpu.temp > 80 ? 'text-danger' : gpu.temp > 70 ? 'text-warning' : 'text-success';
                 const memClass = gpu.memory > 80 ? 'text-danger' : gpu.memory > 60 ? 'text-warning' : 'text-success';
                 
-                // Determine GPU brand icon
-                let brandIcon = '🎮';
-                let brandColor = '#6c757d';
-                if (gpu.name && gpu.name.toLowerCase().includes('nvidia')) {
-                    brandIcon = '🟢';
-                    brandColor = '#76B900';
-                } else if (gpu.name && (gpu.name.toLowerCase().includes('amd') || gpu.name.toLowerCase().includes('radeon'))) {
-                    brandIcon = '🔴';
-                    brandColor = '#ED1C24';
-                } else if (gpu.name && gpu.name.toLowerCase().includes('intel')) {
-                    brandIcon = '🔵';
-                    brandColor = '#0071C5';
-                }
-                
                 gpuCardsHtml += `
                     <div class="col-md-4 mb-3">
                         <div class="card gpu-info-card">
-                            <div class="card-body text-center py-3">
-                                <h6 class="card-title mb-3" style="color: ${brandColor};">
-                                    ${brandIcon} <strong>${gpu.name || `GPU ${index}`}</strong>
+                            <div class="card-body text-center py-2">
+                                <h6 class="card-title mb-2">
+                                    <i class="fas fa-microchip"></i> ${gpu.name || `GPU ${index}`}
                                 </h6>
                                 <div class="row text-center">
                                     <div class="col-4">
                                         <div class="${usageClass}">
                                             <i class="fas fa-tachometer-alt"></i><br>
-                                            <strong style="font-size: 18px;">${gpu.usage || 0}%</strong><br>
-                                            <small class="text-muted">Zauzetost</small>
+                                            <strong>${gpu.usage || 0}%</strong><br>
+                                            <small>Zauzetost</small>
                                         </div>
                                     </div>
                                     <div class="col-4">
                                         <div class="${tempClass}">
                                             <i class="fas fa-thermometer-half"></i><br>
-                                            <strong style="font-size: 18px;">${gpu.temp || 0}°C</strong><br>
-                                            <small class="text-muted">Temperatura</small>
+                                            <strong>${gpu.temp || 0}°C</strong><br>
+                                            <small>Temperatura</small>
                                         </div>
                                     </div>
                                     <div class="col-4">
                                         <div class="${memClass}">
                                             <i class="fas fa-memory"></i><br>
-                                            <strong style="font-size: 18px;">${gpu.memory || 0}%</strong><br>
-                                            <small class="text-muted">Memorija</small>
+                                            <strong>${gpu.memory || 0}%</strong><br>
+                                            <small>Memorija</small>
                                         </div>
                                     </div>
                                 </div>
                                 ${gpu.fanSpeed ? `
-                                <div class="mt-3 pt-2 border-top">
-                                    <small style="color: #6c757d;">
-                                        <i class="fas fa-fan fa-spin"></i> <strong>Fan: ${gpu.fanSpeed}%</strong> 
-                                        ${gpu.powerDraw ? `| <i class="fas fa-bolt"></i> ${gpu.powerDraw}W` : ''}
-                                    </small>
-                                </div>
-                                ` : ''}
-                                ${gpu.processes && gpu.processes > 0 ? `
                                 <div class="mt-2">
-                                    <span class="badge bg-primary">
-                                        <i class="fas fa-cogs"></i> ${gpu.processes} aktivnih procesa
-                                    </span>
+                                    <small class="text-muted">
+                                        <i class="fas fa-fan"></i> Fan: ${gpu.fanSpeed}%
+                                    </small>
                                 </div>
                                 ` : ''}
                             </div>
