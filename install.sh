@@ -412,7 +412,7 @@ TimeoutSec=30
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ProtectHome=true
+ProtectHome=false
 ReadWritePaths=$PROJECT_DIR/streams
 ReadWritePaths=$PROJECT_DIR/logs
 

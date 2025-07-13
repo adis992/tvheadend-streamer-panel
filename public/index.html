@@ -1071,8 +1071,13 @@
             </div>
             <div class="col-md-3 mb-2">
                 <div class="stat-box bg-light rounded shadow-sm py-3">
-                    <div class="fw-bold">Ukupna potrošnja</div>
-                    <div id="bandwidth-usage" class="fs-4 text-info">8.0 MB/s</div>
+                    <div class="fw-bold d-flex justify-content-between align-items-center">
+                        Ukupna potrošnja
+                        <button id="refresh-bandwidth-btn" class="btn btn-sm btn-outline-primary" title="Osvježi potrošnju">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                    <div id="bandwidth-usage" class="fs-4 text-info">0 Mbps</div>
                 </div>
             </div>
         </div>
@@ -1178,8 +1183,9 @@
         let autoRefreshInterval = null;
         let serverConfig = null;
         
-        // DOM elements
+        // DOM elements - Fixed references
         const channelsList = document.getElementById('channels-list');
+        const tableBody = document.getElementById('channels-list'); // For table body
         const refreshBtn = document.getElementById('refresh-btn');
         const searchInput = document.getElementById('search-input');
         const qualitySelect = document.getElementById('quality-select');
@@ -1211,12 +1217,14 @@
             if (channelsChanged) {
                 console.log('Channels data changed, updating UI');
                 
-                // Initialize default settings for new channels
+                // Initialize default settings for new channels - ENSURE PASSTHROUGH IS DEFAULT
                 channelsData.forEach(channel => {
-                    if (!channel.profile) {
+                    // Always default to passthrough if no profile is set
+                    if (!channel.profile || channel.profile === '') {
                         channel.profile = 'passthrough';
                     }
-                    if (!channel.gpu) {
+                    // Always default to auto if no GPU is set
+                    if (!channel.gpu || channel.gpu === '') {
                         channel.gpu = 'auto';
                     }
                 });
@@ -2021,6 +2029,21 @@
             return `http://${host}:${port}/streams/${channel.id}/playlist.m3u8`;
         }
 
+        // Function to calculate individual channel bandwidth
+        function calculateBandwidth(channel, profile) {
+            if (!profile || profile.includes('copy') || profile.includes('passthrough')) {
+                return 5000; // 5 Mbps for passthrough
+            } else if (profile.includes('1080p')) {
+                return 3000; // 3 Mbps for 1080p
+            } else if (profile.includes('720p')) {
+                return 2000; // 2 Mbps for 720p
+            } else if (profile.includes('480p')) {
+                return 1000; // 1 Mbps for 480p
+            } else {
+                return 1500; // Default 1.5 Mbps
+            }
+        }
+
         // Function to calculate total bandwidth
         function calculateTotalBandwidth() {
             let total = 0;
@@ -2033,6 +2056,17 @@
             return total;
         }
 
+        // Format bandwidth display
+        function formatBandwidth(kbps) {
+            if (kbps >= 1000000) {
+                return (kbps / 1000000).toFixed(1) + ' Gbps';
+            } else if (kbps >= 1000) {
+                return (kbps / 1000).toFixed(1) + ' Mbps';
+            } else {
+                return kbps + ' Kbps';
+            }
+        }
+
         // Update statistics row
         function updateStats() {
             if (totalChannelsSpan) {
@@ -2043,11 +2077,11 @@
                 activeStreamsSpan.textContent = activeStreams.size;
             }
             
-            // Update bandwidth
-            const bandwidthSpan = document.getElementById('total-bandwidth');
-            if (bandwidthSpan) {
+            // Update bandwidth display
+            const bandwidthElement = document.getElementById('bandwidth-usage');
+            if (bandwidthElement) {
                 const totalBandwidth = calculateTotalBandwidth();
-                bandwidthSpan.textContent = formatBandwidth(totalBandwidth);
+                bandwidthElement.textContent = formatBandwidth(totalBandwidth);
             }
         }
 
@@ -2109,6 +2143,35 @@
                 
                 if (response.ok) {
                     showNotification('Svi stream-ovi su zaustavljeni', 'success');
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                showNotification(`Greška: ${error.message}`, 'error');
+            }
+        }
+
+        // Start all streams
+        async function startAllStreams() {
+            try {
+                if (channels.length === 0) {
+                    showNotification('Nema kanala za pokretanje', 'warning');
+                    return;
+                }
+
+                const response = await fetch('/api/start-all-streams', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        profile: 'passthrough', 
+                        gpu: 'auto' 
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification('Pokretanje svih stream-ova...', 'success');
                 } else {
                     throw new Error(result.error);
                 }
@@ -2204,16 +2267,36 @@
             console.log('Initializing application...');
             
             // Setup search functionality
+            const searchInput = document.getElementById('search-input');
             if (searchInput) {
                 searchInput.addEventListener('input', () => {
                     renderChannels();
                 });
             }
             
+            // Setup start all button
+            const startAllBtn = document.getElementById('start-all-btn');
+            if (startAllBtn) {
+                startAllBtn.addEventListener('click', startAllStreams);
+            }
+            
             // Setup stop all button
             const stopAllBtn = document.getElementById('stop-all-btn');
             if (stopAllBtn) {
                 stopAllBtn.addEventListener('click', stopAllStreams);
+            }
+            
+            // Setup refresh bandwidth button
+            const refreshBandwidthBtn = document.getElementById('refresh-bandwidth-btn');
+            if (refreshBandwidthBtn) {
+                refreshBandwidthBtn.addEventListener('click', function() {
+                    updateStats();
+                    // Add visual feedback
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    setTimeout(() => {
+                        this.innerHTML = '<i class="fas fa-sync-alt"></i>';
+                    }, 500);
+                });
             }
             
             // Load server config first (contains port info)
